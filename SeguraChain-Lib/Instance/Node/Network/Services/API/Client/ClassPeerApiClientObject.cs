@@ -1,0 +1,1544 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using SeguraChain_Lib.Blockchain.Block.Enum;
+using SeguraChain_Lib.Blockchain.Block.Function;
+using SeguraChain_Lib.Blockchain.Block.Object.Structure;
+using SeguraChain_Lib.Blockchain.Database;
+using SeguraChain_Lib.Blockchain.MemPool.Database;
+using SeguraChain_Lib.Blockchain.Mining.Enum;
+using SeguraChain_Lib.Blockchain.Mining.Function;
+using SeguraChain_Lib.Blockchain.Setting;
+using SeguraChain_Lib.Blockchain.Stats.Function;
+using SeguraChain_Lib.Blockchain.Transaction.Enum;
+using SeguraChain_Lib.Blockchain.Transaction.Object;
+using SeguraChain_Lib.Blockchain.Transaction.Utility;
+using SeguraChain_Lib.Instance.Node.Network.Database;
+using SeguraChain_Lib.Instance.Node.Network.Enum.API.Packet;
+using SeguraChain_Lib.Instance.Node.Network.Enum.P2P.Packet;
+using SeguraChain_Lib.Instance.Node.Network.Services.API.Client.Enum;
+using SeguraChain_Lib.Instance.Node.Network.Services.API.Packet;
+using SeguraChain_Lib.Instance.Node.Network.Services.API.Packet.Explorer;
+using SeguraChain_Lib.Instance.Node.Network.Services.API.Packet.SubPacket.Request;
+using SeguraChain_Lib.Instance.Node.Network.Services.API.Packet.SubPacket.Response;
+using SeguraChain_Lib.Instance.Node.Network.Services.Firewall.Manager;
+using SeguraChain_Lib.Instance.Node.Network.Services.P2P.Broadcast;
+using SeguraChain_Lib.Instance.Node.Setting.Object;
+using SeguraChain_Lib.Log;
+using SeguraChain_Lib.Other.Object.List;
+using SeguraChain_Lib.Other.Object.Network;
+using SeguraChain_Lib.Utility;
+using static SeguraChain_Lib.Other.Object.Network.ClassCustomSocket;
+
+namespace SeguraChain_Lib.Instance.Node.Network.Services.API.Client
+{
+    public class ClassPeerApiClientObject : IDisposable
+    {
+        private readonly string _peerWebDirectory = AppDomain.CurrentDomain.BaseDirectory + "website";
+        private readonly ClassPeerDatabase _peerDatabase;
+        private readonly ClassPeerNetworkSettingObject _peerNetworkSettingObject;
+        private readonly ClassPeerFirewallSettingObject _peerFirewallSettingObject;
+        private readonly string _apiServerOpenNatIp;
+        private ClassCustomSocket _clientSocket;
+        private readonly string _clientIp;
+        public CancellationTokenSource _cancellationTokenApiClient;
+        private CancellationTokenSource _cancellationTokenApiClientCheck;
+        public bool ClientConnectionStatus;
+        public long ClientConnectTimestamp;
+        public bool PacketResponseSent;
+        private bool _validPostRequest;
+
+        public bool OnHandlePacket;
+
+        #region Dispose functions
+
+        private bool _disposed;
+
+        ~ClassPeerApiClientObject()
+        {
+            Dispose(true);
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        // Protected implementation of Dispose pattern.
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_disposed)
+                return;
+
+            if (disposing)
+                CloseApiClientConnection(false);
+
+            _disposed = true;
+        }
+
+        #endregion
+
+        /// <summary>
+        /// Constructor.
+        /// </summary>
+        public ClassPeerApiClientObject(ClassPeerDatabase peerDatabase,
+            ClassCustomSocket clientSocket,
+            string clientIp,
+            ClassPeerNetworkSettingObject peerNetworkSettingObject,
+            ClassPeerFirewallSettingObject peerFirewallSettingObject,
+            string apiServerOpenNatIp,
+            CancellationTokenSource cancellationTokenApiServer)
+        {
+            _peerDatabase = peerDatabase;
+            _apiServerOpenNatIp = apiServerOpenNatIp;
+            _clientSocket = clientSocket;
+            _peerNetworkSettingObject = peerNetworkSettingObject;
+            _peerFirewallSettingObject = peerFirewallSettingObject;
+            _clientIp = clientIp;
+            _cancellationTokenApiClient = CancellationTokenSource.CreateLinkedTokenSource(cancellationTokenApiServer.Token);
+            _cancellationTokenApiClientCheck = CancellationTokenSource.CreateLinkedTokenSource(cancellationTokenApiServer.Token);
+            ClientConnectionStatus = true;
+            ClientConnectTimestamp = TaskManager.TaskManager.CurrentTimestampSecond;
+        }
+
+        #region Manage Client API connection
+
+        /// <summary>
+        /// Handle a new incoming connection from a client to the API.
+        /// PERF: lecture bytes + parsing headers (évite concat string/SelectMany).
+        /// </summary>
+        public async Task<bool> HandleApiClientConnection()
+        {
+            await TaskManager.TaskManager.InsertTask(new Action(async () => await CheckApiClientConnection()),
+                0, _cancellationTokenApiClientCheck, _clientSocket);
+
+            await TaskManager.TaskManager.InsertTask(new Action(async () =>
+            {
+                try
+                {
+                    if (!ClientConnectionStatus)
+                        return;
+
+                    // PERF: accumulation en bytes pour éviter les concaténations de string et les SelectMany/ToArray.
+                    long maxBytes = Math.Min(
+                        (long)ClassPeerPacketSetting.PacketMaxLengthReceive * 1024L,
+                        64L * 1024L * 1024L
+                    ); 
+                    byte[] headerSeparator = Encoding.ASCII.GetBytes("\r\n\r\n");
+
+                    using (var ms = new MemoryStream(16 * 1024))
+                    {
+                        bool continueReading = true;
+                        bool isPostRequest = false;
+                        int contentLength = -1;
+                        int headerEndIndex = -1;
+
+                        while (continueReading && ClientConnectionStatus)
+                        {
+                            using (ReadPacketData readPacketData = await _clientSocket.TryReadPacketData(
+                                       _peerNetworkSettingObject.PeerMaxPacketBufferSize,
+                                       _peerNetworkSettingObject.PeerMaxDelayAwaitResponse * 1000,
+                                       true,
+                                       _cancellationTokenApiClient))
+                            {
+                                if (!readPacketData.Status)
+                                    break;
+
+#if DEBUG
+                                ClassLog.WriteLine("Packet data size received: " + (readPacketData.Data != null ? readPacketData.Data.Length : 0),
+                                    ClassEnumLogLevelType.LOG_LEVEL_API_SERVER,
+                                    ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY,
+                                    false,
+                                    ConsoleColor.White);
+#endif
+
+                                ClientConnectTimestamp = TaskManager.TaskManager.CurrentTimestampSecond;
+
+                                if (readPacketData.Data != null && readPacketData.Data.Length > 0)
+                                {
+                                    ms.Write(readPacketData.Data, 0, readPacketData.Data.Length);
+
+                                    if (ms.Length > maxBytes)
+                                    {
+                                        // Trop de données: on stoppe (évite DoS mémoire).
+                                        break;
+                                    }
+                                }
+
+                                // Analyse des headers dès que possible.
+                                if (headerEndIndex < 0 && ms.Length >= headerSeparator.Length)
+                                {
+                                    headerEndIndex = IndexOf(ms.GetBuffer(), (int)ms.Length, headerSeparator);
+
+                                    if (headerEndIndex >= 0)
+                                    {
+                                        string headerText = Encoding.ASCII.GetString(ms.GetBuffer(), 0, headerEndIndex);
+
+                                        // Détection GET/POST via la première ligne.
+                                        int firstCrlf = headerText.IndexOf("\r\n", StringComparison.Ordinal);
+                                        string firstLine = firstCrlf > 0 ? headerText.Substring(0, firstCrlf) : headerText;
+
+                                        if (firstLine.StartsWith("POST ", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            isPostRequest = true;
+                                            contentLength = ExtractContentLength(headerText);
+
+                                            // Si Content-Length absent, on gardera un fallback après conversion string (comportement historique).
+                                        }
+                                        else if (firstLine.StartsWith("GET ", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            // Pour GET, on a tout ce qu'il faut après les headers.
+                                            continueReading = false;
+                                        }
+                                    }
+                                }
+
+                                // Si POST: attendre d'avoir lu tout le body si Content-Length est connu.
+                                if (isPostRequest && headerEndIndex >= 0 && contentLength >= 0)
+                                {
+                                    int bodyStart = headerEndIndex + headerSeparator.Length;
+                                    int currentBodyLen = (int)ms.Length - bodyStart;
+
+                                    if (currentBodyLen >= contentLength)
+                                        continueReading = false;
+                                }
+                            }
+                        }
+
+                        if (ms.Length > 0 && ClientConnectionStatus)
+                        {
+                            // Conversion en string (UTF-8) pour conserver le comportement existant.
+                            string packetReceived = Encoding.UTF8.GetString(ms.GetBuffer(), 0, (int)ms.Length).Replace("\0", string.Empty);
+
+                            // Fallback POST historique si Content-Length non exploitable:
+                            // Vérifie PostDataPosition1 + longueur contenu (ancienne logique).
+                            if (isPostRequest && headerEndIndex >= 0 && contentLength < 0)
+                            {
+                                try
+                                {
+                                    if (packetReceived.Contains(ClassPeerApiEnumHttpPostRequestSyntax.HttpPostRequestType) &&
+                                        packetReceived.Contains(ClassPeerApiEnumHttpPostRequestSyntax.PostDataPosition1))
+                                    {
+                                        int idx = packetReceived.IndexOf(ClassPeerApiEnumHttpPostRequestSyntax.PostDataPosition1, 0, StringComparison.Ordinal);
+                                        if (idx >= 0)
+                                        {
+                                            string[] packetInfoSplitted = packetReceived.Substring(idx)
+                                                .Split(new[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+
+                                            if (packetInfoSplitted.Length == 2)
+                                            {
+                                                int packetContentLength;
+                                                string contentLenStr = packetInfoSplitted[0]
+                                                    .Replace(ClassPeerApiEnumHttpPostRequestSyntax.PostDataPosition1 + " ", "");
+
+                                                if (int.TryParse(contentLenStr, out packetContentLength))
+                                                {
+                                                    // Note: .Length ici = chars, mais on garde volontairement ce comportement (legacy).
+                                                    if (packetContentLength == packetInfoSplitted[1].Length)
+                                                    {
+                                                        // OK: tout a été lu.
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                catch
+                                {
+                                    // Ignored (fallback best-effort)
+                                }
+                            }
+
+                            // POST
+                            if (isPostRequest && headerEndIndex >= 0)
+                            {
+                                _validPostRequest = true;
+
+                                int indexPacket = packetReceived.IndexOf(ClassPeerApiEnumHttpPostRequestSyntax.PostDataTargetIndexOf, 0, StringComparison.Ordinal);
+                                if (indexPacket >= 0)
+                                    packetReceived = packetReceived.Substring(indexPacket);
+
+                                OnHandlePacket = true;
+
+                                if (!await HandleApiClientPostPacket(packetReceived))
+                                {
+                                    if (_peerFirewallSettingObject.PeerEnableFirewallLink)
+                                        ClassPeerFirewallManager.InsertInvalidPacket(_clientIp);
+                                }
+
+                                OnHandlePacket = false;
+                            }
+
+                            // GET
+                            if (!_validPostRequest)
+                            {
+                                if (packetReceived.IndexOf("GET", StringComparison.OrdinalIgnoreCase) >= 0)
+                                {
+                                    packetReceived = packetReceived.GetStringBetweenTwoStrings("GET /", "HTTP");
+                                    packetReceived = packetReceived.Replace("%7C", "|");
+                                    packetReceived = packetReceived.Replace(" ", "");
+
+                                    OnHandlePacket = true;
+
+                                    if (!await HandleApiClientGetPacket(packetReceived))
+                                    {
+                                        if (_peerFirewallSettingObject.PeerEnableFirewallLink)
+                                            ClassPeerFirewallManager.InsertInvalidPacket(_clientIp);
+                                    }
+
+                                    OnHandlePacket = false;
+                                }
+                            }
+                        }
+                    }
+
+                    // Close the connection after to have receive the packet of the incoming connection.
+                    ClientConnectionStatus = false;
+                }
+                catch
+                {
+                    ClientConnectionStatus = false;
+                }
+            }), 0, _cancellationTokenApiClient);
+
+            return PacketResponseSent;
+        }
+
+        /// <summary>
+        /// Check the API Client Connection
+        /// </summary>
+        private async Task CheckApiClientConnection()
+        {
+            while (ClientConnectionStatus)
+            {
+                try
+                {
+                    // Disconnected or the task has been stopped.
+                    if (!ClientConnectionStatus)
+                        break;
+
+                    // If the API Firewall Link is enabled.
+                    if (_peerFirewallSettingObject.PeerEnableFirewallLink)
+                    {
+                        // Banned.
+                        if (!ClassPeerFirewallManager.CheckClientIpStatus(_clientIp))
+                            break;
+                    }
+
+                    // Timeout.
+                    if (!OnHandlePacket)
+                    {
+                        if (ClientConnectTimestamp + _peerNetworkSettingObject.PeerApiMaxConnectionDelay < TaskManager.TaskManager.CurrentTimestampSecond)
+                            break;
+                    }
+
+                    if (_clientSocket == null)
+                        break;
+
+                    await Task.Delay(1000);
+                }
+                catch
+                {
+                    break;
+                }
+            }
+
+            CloseApiClientConnection(true);
+        }
+
+        /// <summary>
+        /// Close the API client connection.
+        /// </summary>
+        public void CloseApiClientConnection(bool fromChecker)
+        {
+            ClientConnectionStatus = false;
+
+            if (fromChecker)
+            {
+                try
+                {
+                    if (_cancellationTokenApiClient != null)
+                    {
+                        if (!_cancellationTokenApiClient.IsCancellationRequested)
+                        {
+                            _cancellationTokenApiClient.Cancel();
+                            _cancellationTokenApiClient.Dispose();
+                        }
+                    }
+                }
+                catch
+                {
+                    // Ignored.
+                }
+            }
+
+            if (!fromChecker)
+            {
+                if (_cancellationTokenApiClientCheck != null)
+                {
+                    if (!_cancellationTokenApiClientCheck.IsCancellationRequested)
+                    {
+                        _cancellationTokenApiClientCheck.Cancel();
+                        _cancellationTokenApiClientCheck.Dispose();
+                    }
+                }
+            }
+
+            _clientSocket?.Kill(SocketShutdown.Both);
+        }
+
+        #endregion
+
+        #region Manage Client API Packets
+
+        /// <summary>
+        /// Handle API POST Packet sent by a client.
+        /// </summary>
+        private async Task<bool> HandleApiClientPostPacket(string packetReceived)
+        {
+            try
+            {
+                ClassPeerApiPacketResponseEnum typeResponse = ClassPeerApiPacketResponseEnum.OK;
+
+                ClassApiPeerPacketObjectSend apiPeerPacketObjectSend = TryDeserializedPacketContent<ClassApiPeerPacketObjectSend>(packetReceived);
+
+                if (apiPeerPacketObjectSend == null)
+                    typeResponse = ClassPeerApiPacketResponseEnum.INVALID_PACKET;
+                else
+                {
+                    if (apiPeerPacketObjectSend.PacketContentObjectSerialized.IsNullOrEmpty(false, out _))
+                        typeResponse = ClassPeerApiPacketResponseEnum.INVALID_PACKET;
+                    else
+                    {
+                        switch (apiPeerPacketObjectSend.PacketType)
+                        {
+                            case ClassPeerApiPostPacketSendEnum.ASK_BLOCK_INFORMATION:
+                                {
+                                    ClassApiPeerPacketAskBlockInformation apiPeerPacketAskBlockinformation =
+                                        TryDeserializedPacketContent<ClassApiPeerPacketAskBlockInformation>(apiPeerPacketObjectSend.PacketContentObjectSerialized);
+
+                                    if (apiPeerPacketAskBlockinformation != null)
+                                    {
+                                        if (ClassUtility.CheckPacketTimestamp(apiPeerPacketAskBlockinformation.PacketTimestamp,
+                                                _peerNetworkSettingObject.PeerMaxTimestampDelayPacket,
+                                                _peerNetworkSettingObject.PeerMaxEarlierPacketDelay))
+                                        {
+                                            if (ClassBlockchainStats.ContainsBlockHeight(apiPeerPacketAskBlockinformation.BlockHeight))
+                                            {
+                                                if (!await SendApiResponse(BuildPacketResponse(new ClassApiPeerPacketSendBlockInformation()
+                                                {
+                                                    BlockObject = await ClassBlockchainStats.GetBlockInformationData(apiPeerPacketAskBlockinformation.BlockHeight, _cancellationTokenApiClient),
+                                                    PacketTimestamp = TaskManager.TaskManager.CurrentTimestampSecond
+
+                                                }, ClassPeerApiPacketResponseEnum.SEND_BLOCK_INFORMATION)))
+                                                {
+                                                    // Can't send packet.
+                                                    return false;
+                                                }
+                                            }
+                                            else
+                                                typeResponse = ClassPeerApiPacketResponseEnum.INVALID_BLOCK_HEIGHT;
+                                        }
+                                        else // Invalid Packet Timestamp.
+                                            typeResponse = ClassPeerApiPacketResponseEnum.INVALID_PACKET_TIMESTAMP;
+                                    }
+                                    else // Invalid Packet.
+                                        typeResponse = ClassPeerApiPacketResponseEnum.INVALID_PACKET;
+                                }
+                                break;
+                            case ClassPeerApiPostPacketSendEnum.ASK_BLOCK_TRANSACTION:
+                                {
+                                    ClassApiPeerPacketAskBlockTransaction apiPeerPacketAskBlockTransaction =
+                                        TryDeserializedPacketContent<ClassApiPeerPacketAskBlockTransaction>(apiPeerPacketObjectSend.PacketContentObjectSerialized);
+
+                                    if (apiPeerPacketAskBlockTransaction != null)
+                                    {
+                                        if (ClassUtility.CheckPacketTimestamp(apiPeerPacketAskBlockTransaction.PacketTimestamp,
+                                                _peerNetworkSettingObject.PeerMaxTimestampDelayPacket,
+                                                _peerNetworkSettingObject.PeerMaxEarlierPacketDelay))
+                                        {
+                                            if (ClassBlockchainStats.ContainsBlockHeight(apiPeerPacketAskBlockTransaction.BlockHeight))
+                                            {
+                                                if (!await SendApiResponse(BuildPacketResponse(new ClassApiPeerPacketSendBlockTransaction()
+                                                {
+                                                    BlockTransaction = await ClassBlockchainDatabase.BlockchainMemoryManagement.GetBlockTransactionFromSpecificTransactionHashAndHeight(
+                                                        apiPeerPacketAskBlockTransaction.TransactionHash,
+                                                        apiPeerPacketAskBlockTransaction.BlockHeight,
+                                                        true,
+                                                        true,
+                                                        _cancellationTokenApiClient),
+                                                    PacketTimestamp = TaskManager.TaskManager.CurrentTimestampSecond
+
+                                                }, ClassPeerApiPacketResponseEnum.SEND_BLOCK_TRANSACTION)))
+                                                {
+                                                    // Can't send packet.
+                                                    return false;
+                                                }
+                                            }
+                                            else
+                                                typeResponse = ClassPeerApiPacketResponseEnum.INVALID_BLOCK_HEIGHT;
+                                        }
+                                        else // Invalid Packet Timestamp.
+                                            typeResponse = ClassPeerApiPacketResponseEnum.INVALID_PACKET_TIMESTAMP;
+                                    }
+                                    else // Invalid Packet.
+                                        typeResponse = ClassPeerApiPacketResponseEnum.INVALID_PACKET;
+                                }
+                                break;
+
+                            case ClassPeerApiPostPacketSendEnum.ASK_GENERATE_BLOCK_HEIGHT_START_TRANSACTION_CONFIRMATION:
+                                {
+                                    ClassApiPeerPacketAskGenerateBlockHeightStartTransactionConfirmation apiPeerPacketAskGenerateBlockHeightStartTransactionConfirmation =
+                                        TryDeserializedPacketContent<ClassApiPeerPacketAskGenerateBlockHeightStartTransactionConfirmation>(apiPeerPacketObjectSend.PacketContentObjectSerialized);
+
+                                    if (apiPeerPacketAskGenerateBlockHeightStartTransactionConfirmation != null)
+                                    {
+                                        if (ClassUtility.CheckPacketTimestamp(apiPeerPacketAskGenerateBlockHeightStartTransactionConfirmation.PacketTimestamp,
+                                                _peerNetworkSettingObject.PeerMaxTimestampDelayPacket,
+                                                _peerNetworkSettingObject.PeerMaxEarlierPacketDelay))
+                                        {
+                                            if (ClassBlockchainStats.ContainsBlockHeight(apiPeerPacketAskGenerateBlockHeightStartTransactionConfirmation.LastBlockHeight) &&
+                                                ClassBlockchainStats.ContainsBlockHeight(apiPeerPacketAskGenerateBlockHeightStartTransactionConfirmation.LastBlockHeightUnlocked))
+                                            {
+                                                if (!await SendApiResponse(BuildPacketResponse(new ClassApiPeerPacketSendGenerateBlockHeightStartTransactionConfirmation()
+                                                {
+                                                    BlockHeight = await ClassTransactionUtility.GenerateBlockHeightStartTransactionConfirmation(
+                                                        apiPeerPacketAskGenerateBlockHeightStartTransactionConfirmation.LastBlockHeightUnlocked,
+                                                        apiPeerPacketAskGenerateBlockHeightStartTransactionConfirmation.LastBlockHeight,
+                                                        _cancellationTokenApiClient),
+                                                    PacketTimestamp = TaskManager.TaskManager.CurrentTimestampSecond
+
+                                                }, ClassPeerApiPacketResponseEnum.SEND_GENERATE_BLOCK_HEIGHT_START_TRANSACTION_CONFIRMATION)))
+                                                {
+                                                    // Can't send packet.
+                                                    return false;
+                                                }
+                                            }
+                                            else
+                                                typeResponse = ClassPeerApiPacketResponseEnum.INVALID_BLOCK_HEIGHT;
+                                        }
+                                        else // Invalid Packet Timestamp.
+                                            typeResponse = ClassPeerApiPacketResponseEnum.INVALID_PACKET_TIMESTAMP;
+                                    }
+                                    else // Invalid Packet.
+                                        typeResponse = ClassPeerApiPacketResponseEnum.INVALID_PACKET;
+                                }
+                                break;
+
+                            case ClassPeerApiPostPacketSendEnum.ASK_MEMPOOL_TRANSACTION:
+                                {
+                                    ClassApiPeerPacketAskMemPoolTransaction apiPeerPacketAskMemPoolTransaction =
+                                        TryDeserializedPacketContent<ClassApiPeerPacketAskMemPoolTransaction>(apiPeerPacketObjectSend.PacketContentObjectSerialized);
+
+                                    if (apiPeerPacketAskMemPoolTransaction != null)
+                                    {
+                                        if (ClassUtility.CheckPacketTimestamp(apiPeerPacketAskMemPoolTransaction.PacketTimestamp,
+                                                _peerNetworkSettingObject.PeerMaxTimestampDelayPacket,
+                                                _peerNetworkSettingObject.PeerMaxEarlierPacketDelay))
+                                        {
+                                            if (ClassBlockchainStats.ContainsBlockHeight(apiPeerPacketAskMemPoolTransaction.BlockHeight))
+                                            {
+                                                if (!await SendApiResponse(BuildPacketResponse(new ClassApiPeerPacketSendMemPoolTransaction()
+                                                {
+                                                    TransactionObject = await ClassMemPoolDatabase.GetMemPoolTxFromTransactionHash(
+                                                        apiPeerPacketAskMemPoolTransaction.TransactionHash,
+                                                        apiPeerPacketAskMemPoolTransaction.BlockHeight,
+                                                        _cancellationTokenApiClient),
+                                                    PacketTimestamp = TaskManager.TaskManager.CurrentTimestampSecond
+
+                                                }, ClassPeerApiPacketResponseEnum.SEND_MEMPOOL_TRANSACTION)))
+                                                {
+                                                    // Can't send packet.
+                                                    return false;
+                                                }
+                                            }
+                                            else
+                                                typeResponse = ClassPeerApiPacketResponseEnum.INVALID_BLOCK_HEIGHT;
+                                        }
+                                        else // Invalid Packet Timestamp.
+                                            typeResponse = ClassPeerApiPacketResponseEnum.INVALID_PACKET_TIMESTAMP;
+                                    }
+                                    else // Invalid Packet.
+                                        typeResponse = ClassPeerApiPacketResponseEnum.INVALID_PACKET;
+                                }
+                                break;
+
+                            case ClassPeerApiPostPacketSendEnum.ASK_FEE_COST_TRANSACTION:
+                                {
+                                    ClassApiPeerPacketAskFeeCostTransaction apiPeerPacketAskFeeCostTransaction =
+                                        TryDeserializedPacketContent<ClassApiPeerPacketAskFeeCostTransaction>(apiPeerPacketObjectSend.PacketContentObjectSerialized);
+
+                                    if (apiPeerPacketAskFeeCostTransaction != null)
+                                    {
+                                        if (ClassUtility.CheckPacketTimestamp(apiPeerPacketAskFeeCostTransaction.PacketTimestamp,
+                                                _peerNetworkSettingObject.PeerMaxTimestampDelayPacket,
+                                                _peerNetworkSettingObject.PeerMaxEarlierPacketDelay))
+                                        {
+                                            if (ClassBlockchainStats.ContainsBlockHeight(apiPeerPacketAskFeeCostTransaction.LastBlockHeightUnlocked))
+                                            {
+                                                var feeCostCalculation =
+                                                    await ClassTransactionUtility.GetFeeCostFromWholeBlockchainTransactionActivity(
+                                                        apiPeerPacketAskFeeCostTransaction.LastBlockHeightUnlocked,
+                                                        apiPeerPacketAskFeeCostTransaction.BlockHeightConfirmationStart,
+                                                        apiPeerPacketAskFeeCostTransaction.BlockHeightConfirmationTarget,
+                                                        _cancellationTokenApiClient);
+
+                                                if (feeCostCalculation.Item2)
+                                                {
+                                                    if (!await SendApiResponse(BuildPacketResponse(new ClassApiPeerPacketSendFeeCostConfirmation()
+                                                    {
+                                                        FeeCost = feeCostCalculation.Item1,
+                                                        Status = feeCostCalculation.Item2,
+                                                        PacketTimestamp = TaskManager.TaskManager.CurrentTimestampSecond
+
+                                                    }, ClassPeerApiPacketResponseEnum.SEND_FEE_COST_TRANSACTION)))
+                                                    {
+                                                        // Can't send packet.
+                                                        return false;
+                                                    }
+                                                }
+                                                else
+                                                    typeResponse = ClassPeerApiPacketResponseEnum.INVALID_BLOCK_HEIGHT;
+                                            }
+                                            else
+                                                typeResponse = ClassPeerApiPacketResponseEnum.INVALID_BLOCK_HEIGHT;
+                                        }
+                                        else // Invalid Packet Timestamp.
+                                            typeResponse = ClassPeerApiPacketResponseEnum.INVALID_PACKET_TIMESTAMP;
+                                    }
+                                    else // Invalid Packet.
+                                        typeResponse = ClassPeerApiPacketResponseEnum.INVALID_PACKET;
+                                }
+                                break;
+
+                            case ClassPeerApiPostPacketSendEnum.ASK_MEMPOOL_TRANSACTION_COUNT_BY_BLOCK_HEIGHT:
+                                {
+                                    ClassApiPeerPacketAskMemPoolTxCountByBlockHeight apiPeerPacketAskMemPoolTxCountByBlockHeight =
+                                        TryDeserializedPacketContent<ClassApiPeerPacketAskMemPoolTxCountByBlockHeight>(apiPeerPacketObjectSend.PacketContentObjectSerialized);
+
+                                    if (apiPeerPacketAskMemPoolTxCountByBlockHeight != null)
+                                    {
+                                        if (ClassUtility.CheckPacketTimestamp(apiPeerPacketAskMemPoolTxCountByBlockHeight.PacketTimestamp,
+                                                _peerNetworkSettingObject.PeerMaxTimestampDelayPacket,
+                                                _peerNetworkSettingObject.PeerMaxEarlierPacketDelay))
+                                        {
+                                            if (!await SendApiResponse(BuildPacketResponse(new ClassApiPeerPacketSendMemPoolTransactionCount()
+                                            {
+                                                TransactionCount = await ClassMemPoolDatabase.GetCountMemPoolTxFromBlockHeight(
+                                                    apiPeerPacketAskMemPoolTxCountByBlockHeight.BlockHeight,
+                                                    true,
+                                                    _cancellationTokenApiClient),
+                                                PacketTimestamp = TaskManager.TaskManager.CurrentTimestampSecond
+
+                                            }, ClassPeerApiPacketResponseEnum.SEND_MEMPOOL_TRANSACTION_COUNT_BY_BLOCK_HEIGHT)))
+                                            {
+                                                // Can't send packet.
+                                                return false;
+                                            }
+                                        }
+                                        else // Invalid Packet Timestamp.
+                                            typeResponse = ClassPeerApiPacketResponseEnum.INVALID_PACKET_TIMESTAMP;
+                                    }
+                                    else // Invalid Packet.
+                                        typeResponse = ClassPeerApiPacketResponseEnum.INVALID_PACKET;
+                                }
+                                break;
+
+                            case ClassPeerApiPostPacketSendEnum.ASK_MEMPOOL_TRANSACTION_BY_RANGE:
+                                {
+                                    ClassApiPeerPacketAskMemPoolTransactionByRange apiPeerPacketAsMemPoolTransactionByRange =
+                                        TryDeserializedPacketContent<ClassApiPeerPacketAskMemPoolTransactionByRange>(apiPeerPacketObjectSend.PacketContentObjectSerialized);
+
+                                    if (apiPeerPacketAsMemPoolTransactionByRange != null)
+                                    {
+                                        if (ClassUtility.CheckPacketTimestamp(apiPeerPacketAsMemPoolTransactionByRange.PacketTimestamp,
+                                                _peerNetworkSettingObject.PeerMaxTimestampDelayPacket,
+                                                _peerNetworkSettingObject.PeerMaxEarlierPacketDelay))
+                                        {
+                                            using (DisposableList<ClassTransactionObject> listMemPoolTransaction =
+                                                   await ClassMemPoolDatabase.GetMemPoolTxObjectFromBlockHeight(apiPeerPacketAsMemPoolTransactionByRange.BlockHeight, true, _cancellationTokenApiClient))
+                                            {
+                                                if (!await SendApiResponse(BuildPacketResponse(new ClassApiPeerPacketSendMemPoolTransactionByRange()
+                                                {
+                                                    ListTransaction = listMemPoolTransaction.GetList
+                                                        .Skip(apiPeerPacketAsMemPoolTransactionByRange.Start)
+                                                        .Take(apiPeerPacketAsMemPoolTransactionByRange.End)
+                                                        .ToList(),
+                                                    PacketTimestamp = TaskManager.TaskManager.CurrentTimestampSecond
+
+                                                }, ClassPeerApiPacketResponseEnum.SEND_MEMPOOL_TRANSACTION_COUNT_BY_BLOCK_HEIGHT)))
+                                                {
+                                                    // Can't send packet.
+                                                    return false;
+                                                }
+                                            }
+                                        }
+                                        else // Invalid Packet Timestamp.
+                                            typeResponse = ClassPeerApiPacketResponseEnum.INVALID_PACKET_TIMESTAMP;
+                                    }
+                                    else // Invalid Packet.
+                                        typeResponse = ClassPeerApiPacketResponseEnum.INVALID_PACKET;
+                                }
+                                break;
+
+                            case ClassPeerApiPostPacketSendEnum.ASK_BLOCK_TRANSACTION_BY_RANGE:
+                                {
+                                    ClassApiPeerPacketAskBlockTransactionByRange apiPeerPacketAskBlockTransactionByRange =
+                                        TryDeserializedPacketContent<ClassApiPeerPacketAskBlockTransactionByRange>(apiPeerPacketObjectSend.PacketContentObjectSerialized);
+
+                                    if (apiPeerPacketAskBlockTransactionByRange != null)
+                                    {
+                                        if (ClassUtility.CheckPacketTimestamp(apiPeerPacketAskBlockTransactionByRange.PacketTimestamp,
+                                                _peerNetworkSettingObject.PeerMaxTimestampDelayPacket,
+                                                _peerNetworkSettingObject.PeerMaxEarlierPacketDelay))
+                                        {
+                                            if (ClassBlockchainStats.ContainsBlockHeight(apiPeerPacketAskBlockTransactionByRange.BlockHeight))
+                                            {
+                                                int blockTransactionCount = await ClassBlockchainStats.GetBlockTransactionCount(apiPeerPacketAskBlockTransactionByRange.BlockHeight, _cancellationTokenApiClient);
+
+                                                if (blockTransactionCount > apiPeerPacketAskBlockTransactionByRange.Start &&
+                                                    blockTransactionCount >= apiPeerPacketAskBlockTransactionByRange.End)
+                                                {
+                                                    using (var disposableBlockTransactionList =
+                                                           await ClassBlockchainStats.GetTransactionListFromBlockHeightTarget(apiPeerPacketAskBlockTransactionByRange.BlockHeight, true, _cancellationTokenApiClient))
+                                                    {
+                                                        if (!await SendApiResponse(BuildPacketResponse(new ClassApiPeerPacketSendListBlockTransaction()
+                                                        {
+                                                            ListBlockTransaction = disposableBlockTransactionList.GetList.Values
+                                                                .Skip(apiPeerPacketAskBlockTransactionByRange.Start)
+                                                                .Take(apiPeerPacketAskBlockTransactionByRange.End)
+                                                                .ToList(),
+                                                            PacketTimestamp = TaskManager.TaskManager.CurrentTimestampSecond
+
+                                                        }, ClassPeerApiPacketResponseEnum.SEND_BLOCK_TRANSACTION_BY_RANGE)))
+                                                        {
+                                                            // Can't send packet.
+                                                            return false;
+                                                        }
+                                                    }
+                                                }
+                                                else
+                                                    typeResponse = ClassPeerApiPacketResponseEnum.MAX_BLOCK_TRANSACTION_REACH;
+                                            }
+                                            else
+                                                typeResponse = ClassPeerApiPacketResponseEnum.INVALID_BLOCK_HEIGHT;
+                                        }
+                                        else // Invalid Packet Timestamp.
+                                            typeResponse = ClassPeerApiPacketResponseEnum.INVALID_PACKET_TIMESTAMP;
+                                    }
+                                    else // Invalid Packet.
+                                        typeResponse = ClassPeerApiPacketResponseEnum.INVALID_PACKET;
+                                }
+                                break;
+
+                            case ClassPeerApiPostPacketSendEnum.ASK_BLOCK_TRANSACTION_BY_HASH_LIST:
+                                {
+                                    ClassApiPeerPacketAskBlockTransactionByHashList apiPeerPacketAskBlockTransactionByHashList =
+                                        TryDeserializedPacketContent<ClassApiPeerPacketAskBlockTransactionByHashList>(apiPeerPacketObjectSend.PacketContentObjectSerialized);
+
+                                    if (apiPeerPacketAskBlockTransactionByHashList != null)
+                                    {
+                                        if (ClassUtility.CheckPacketTimestamp(apiPeerPacketAskBlockTransactionByHashList.PacketTimestamp,
+                                                _peerNetworkSettingObject.PeerMaxTimestampDelayPacket,
+                                                _peerNetworkSettingObject.PeerMaxEarlierPacketDelay))
+                                        {
+                                            if (ClassBlockchainStats.ContainsBlockHeight(apiPeerPacketAskBlockTransactionByHashList.BlockHeight))
+                                            {
+                                                if (!await SendApiResponse(BuildPacketResponse(new ClassApiPeerPacketSendListBlockTransaction()
+                                                {
+                                                    ListBlockTransaction = (await ClassBlockchainDatabase.BlockchainMemoryManagement.GetListBlockTransactionFromListTransactionHashAndHeight(
+                                                            apiPeerPacketAskBlockTransactionByHashList.ListTransactionHash,
+                                                            apiPeerPacketAskBlockTransactionByHashList.BlockHeight,
+                                                            true,
+                                                            true,
+                                                            _cancellationTokenApiClient)).GetList,
+                                                    PacketTimestamp = TaskManager.TaskManager.CurrentTimestampSecond
+
+                                                }, ClassPeerApiPacketResponseEnum.SEND_BLOCK_TRANSACTION_BY_HASH_LIST)))
+                                                {
+                                                    // Can't send packet.
+                                                    return false;
+                                                }
+                                            }
+                                        }
+                                        else // Invalid Packet Timestamp.
+                                            typeResponse = ClassPeerApiPacketResponseEnum.INVALID_PACKET_TIMESTAMP;
+                                    }
+                                    else // Invalid Packet.
+                                        typeResponse = ClassPeerApiPacketResponseEnum.INVALID_PACKET;
+                                }
+                                break;
+
+                            case ClassPeerApiPostPacketSendEnum.PUSH_WALLET_TRANSACTION:
+                                {
+                                    ClassApiPeerPacketPushWalletTransaction apiPeerPacketPushWalletTransaction =
+                                        TryDeserializedPacketContent<ClassApiPeerPacketPushWalletTransaction>(apiPeerPacketObjectSend.PacketContentObjectSerialized);
+
+                                    bool responseSent = false;
+
+                                    if (apiPeerPacketPushWalletTransaction != null)
+                                    {
+                                        if (ClassUtility.CheckPacketTimestamp(apiPeerPacketPushWalletTransaction.PacketTimestamp,
+                                                _peerNetworkSettingObject.PeerMaxTimestampDelayPacket,
+                                                _peerNetworkSettingObject.PeerMaxEarlierPacketDelay))
+                                        {
+                                            if (apiPeerPacketPushWalletTransaction.TransactionObject != null)
+                                            {
+                                                if (await ClassBlockchainStats.CheckTransaction(apiPeerPacketPushWalletTransaction.TransactionObject,
+                                                        null, false, null, _cancellationTokenApiClient, true) == ClassTransactionEnumStatus.VALID_TRANSACTION)
+                                                {
+                                                    using (DisposableDictionary<string, ClassTransactionEnumStatus> transactionStatus =
+                                                           await ClassPeerNetworkBroadcastFunction.AskMemPoolTxVoteToPeerListsAsync(
+                                                               _peerDatabase,
+                                                               _peerNetworkSettingObject.ListenApiIp,
+                                                               _apiServerOpenNatIp,
+                                                               _clientIp,
+                                                               new List<ClassTransactionObject>() { apiPeerPacketPushWalletTransaction.TransactionObject },
+                                                               _peerNetworkSettingObject,
+                                                               _peerFirewallSettingObject,
+                                                               _cancellationTokenApiClient,
+                                                               true))
+                                                    {
+                                                        if (transactionStatus.Count > 0)
+                                                        {
+                                                            bool broadcastComplete = transactionStatus.ContainsKey(apiPeerPacketPushWalletTransaction.TransactionObject.TransactionHash) ?
+                                                                transactionStatus[apiPeerPacketPushWalletTransaction.TransactionObject.TransactionHash] == ClassTransactionEnumStatus.VALID_TRANSACTION : false;
+
+                                                            if (broadcastComplete)
+                                                            {
+                                                                ClassBlockTransactionInsertEnumStatus blockTransactionInsertStatus = ClassBlockTransactionInsertEnumStatus.BLOCK_TRANSACTION_INVALID;
+
+                                                                if (!await ClassMemPoolDatabase.CheckTxHashExist(apiPeerPacketPushWalletTransaction.TransactionObject.TransactionHash, _cancellationTokenApiClient))
+                                                                    blockTransactionInsertStatus = await ClassBlockchainDatabase.InsertTransactionToMemPool(apiPeerPacketPushWalletTransaction.TransactionObject, true, false, true, _cancellationTokenApiClient);
+                                                                else
+                                                                    blockTransactionInsertStatus = ClassBlockTransactionInsertEnumStatus.BLOCK_TRANSACTION_HASH_ALREADY_EXIST;
+
+                                                                responseSent = true;
+
+                                                                if (!await SendApiResponse(BuildPacketResponse(new ClassApiPeerPacketSendPushWalletTransactionResponse()
+                                                                {
+                                                                    BlockTransactionInsertStatus = blockTransactionInsertStatus,
+                                                                    PacketTimestamp = TaskManager.TaskManager.CurrentTimestampSecond
+                                                                }, ClassPeerApiPacketResponseEnum.SEND_REPLY_WALLET_TRANSACTION_PUSHED)))
+                                                                {
+                                                                    // Can't send packet.
+                                                                    return false;
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    if (!responseSent)
+                                    {
+                                        if (!await SendApiResponse(BuildPacketResponse(new ClassApiPeerPacketSendPushWalletTransactionResponse()
+                                        {
+                                            BlockTransactionInsertStatus = ClassBlockTransactionInsertEnumStatus.BLOCK_TRANSACTION_INVALID,
+                                            PacketTimestamp = TaskManager.TaskManager.CurrentTimestampSecond
+                                        }, ClassPeerApiPacketResponseEnum.SEND_REPLY_WALLET_TRANSACTION_PUSHED)))
+                                        {
+                                            // Can't send packet.
+                                            return false;
+                                        }
+                                    }
+                                }
+                                break;
+
+                            case ClassPeerApiPostPacketSendEnum.PUSH_MINING_SHARE:
+                                {
+                                    ClassApiPeerPacketSendMiningShare apiPeerPacketSendMiningShare =
+                                        TryDeserializedPacketContent<ClassApiPeerPacketSendMiningShare>(apiPeerPacketObjectSend.PacketContentObjectSerialized);
+
+                                    if (apiPeerPacketSendMiningShare != null)
+                                    {
+                                        if (ClassUtility.CheckPacketTimestamp(apiPeerPacketSendMiningShare.PacketTimestamp,
+                                                _peerNetworkSettingObject.PeerMaxTimestampDelayPacket,
+                                                _peerNetworkSettingObject.PeerMaxEarlierPacketDelay))
+                                        {
+                                            long lastBlockHeight = ClassBlockchainStats.GetLastBlockHeight();
+
+                                            if (lastBlockHeight >= BlockchainSetting.GenesisBlockHeight)
+                                            {
+                                                long previousBlockHeight = lastBlockHeight - 1;
+
+                                                ClassBlockObject previousBlockObjectInformations =
+                                                    await ClassBlockchainDatabase.BlockchainMemoryManagement.GetBlockInformationDataStrategy(previousBlockHeight, _cancellationTokenApiClient);
+
+                                                if (ClassBlockchainDatabase.BlockchainMemoryManagement[lastBlockHeight, _cancellationTokenApiClient].BlockStatus == ClassBlockEnumStatus.LOCKED)
+                                                {
+                                                    ClassMiningPoWaCEnumStatus miningPowShareStatus =
+                                                        ClassMiningPoWaCUtility.CheckPoWaCShare(
+                                                            BlockchainSetting.CurrentMiningPoWaCSettingObject(lastBlockHeight),
+                                                            apiPeerPacketSendMiningShare.MiningPowShareObject,
+                                                            ClassBlockchainDatabase.BlockchainMemoryManagement[lastBlockHeight, _cancellationTokenApiClient].BlockHeight,
+                                                            ClassBlockchainDatabase.BlockchainMemoryManagement[lastBlockHeight, _cancellationTokenApiClient].BlockHash,
+                                                            ClassBlockchainDatabase.BlockchainMemoryManagement[lastBlockHeight, _cancellationTokenApiClient].BlockDifficulty,
+                                                            previousBlockObjectInformations.TotalTransaction,
+                                                            previousBlockObjectInformations.BlockFinalHashTransaction,
+                                                            out _,
+                                                            out _);
+
+                                                    switch (miningPowShareStatus)
+                                                    {
+                                                        // Unlock the current block if everything is okay with other peers.
+                                                        case ClassMiningPoWaCEnumStatus.VALID_UNLOCK_BLOCK_SHARE:
+                                                            {
+                                                                ClassBlockEnumMiningShareVoteStatus miningShareVoteStatus =
+                                                                    await ClassBlockchainDatabase.UnlockCurrentBlockAsync(
+                                                                        _peerDatabase,
+                                                                        lastBlockHeight,
+                                                                        apiPeerPacketSendMiningShare.MiningPowShareObject,
+                                                                        false,
+                                                                        _peerNetworkSettingObject.ListenIp,
+                                                                        _apiServerOpenNatIp,
+                                                                        false,
+                                                                        false,
+                                                                        _peerNetworkSettingObject,
+                                                                        _peerFirewallSettingObject,
+                                                                        _cancellationTokenApiClient);
+
+                                                                switch (miningShareVoteStatus)
+                                                                {
+                                                                    case ClassBlockEnumMiningShareVoteStatus.MINING_SHARE_VOTE_ACCEPTED:
+                                                                        miningPowShareStatus = ClassMiningPoWaCEnumStatus.VALID_UNLOCK_BLOCK_SHARE;
+                                                                        ClassPeerNetworkBroadcastFunction.BroadcastMiningShareAsync(
+                                                                            _peerDatabase,
+                                                                            _peerNetworkSettingObject.ListenIp,
+                                                                            _apiServerOpenNatIp,
+                                                                            _clientIp,
+                                                                            apiPeerPacketSendMiningShare.MiningPowShareObject,
+                                                                            _peerNetworkSettingObject,
+                                                                            _peerFirewallSettingObject);
+                                                                        break;
+
+                                                                    case ClassBlockEnumMiningShareVoteStatus.MINING_SHARE_VOTE_ALREADY_FOUND:
+                                                                    case ClassBlockEnumMiningShareVoteStatus.MINING_SHARE_VOTE_NOCONSENSUS:
+                                                                        // Can happen when broadcast is fast and sync arrives before votes retrieval.
+                                                                        if (ClassMiningPoWaCUtility.ComparePoWaCShare(
+                                                                                ClassBlockchainDatabase.BlockchainMemoryManagement[lastBlockHeight, _cancellationTokenApiClient].BlockMiningPowShareUnlockObject,
+                                                                                apiPeerPacketSendMiningShare.MiningPowShareObject))
+                                                                            miningPowShareStatus = ClassMiningPoWaCEnumStatus.VALID_UNLOCK_BLOCK_SHARE;
+                                                                        else
+                                                                            miningPowShareStatus = ClassMiningPoWaCEnumStatus.BLOCK_ALREADY_FOUND;
+                                                                        break;
+
+                                                                    case ClassBlockEnumMiningShareVoteStatus.MINING_SHARE_VOTE_INVALID_TIMESTAMP:
+                                                                    case ClassBlockEnumMiningShareVoteStatus.MINING_SHARE_VOTE_REFUSED:
+                                                                        miningPowShareStatus = ClassMiningPoWaCEnumStatus.INVALID_SHARE_DATA;
+                                                                        break;
+                                                                }
+                                                            }
+                                                            break;
+
+                                                        case ClassMiningPoWaCEnumStatus.VALID_SHARE:
+                                                            miningPowShareStatus = ClassMiningPoWaCEnumStatus.VALID_SHARE;
+                                                            break;
+
+                                                        default:
+                                                            typeResponse = ClassPeerApiPacketResponseEnum.INVALID_PUSH_MINING_SHARE;
+                                                            break;
+                                                    }
+
+                                                    if (!await SendApiResponse(BuildPacketResponse(new ClassApiPeerPacketSendMiningShareResponse()
+                                                    {
+                                                        MiningPoWShareStatus = miningPowShareStatus,
+                                                        PacketTimestamp = TaskManager.TaskManager.CurrentTimestampSecond
+                                                    }, ClassPeerApiPacketResponseEnum.SEND_MINING_SHARE_RESPONSE)))
+                                                    {
+                                                        // Can't send packet.
+                                                        return false;
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    if (!await SendApiResponse(BuildPacketResponse(new ClassApiPeerPacketSendMiningShareResponse()
+                                                    {
+                                                        MiningPoWShareStatus = ClassMiningPoWaCEnumStatus.BLOCK_ALREADY_FOUND,
+                                                        PacketTimestamp = TaskManager.TaskManager.CurrentTimestampSecond
+                                                    }, ClassPeerApiPacketResponseEnum.SEND_MINING_SHARE_RESPONSE)))
+                                                    {
+                                                        // Can't send packet.
+                                                        return false;
+                                                    }
+                                                }
+                                            }
+                                            else
+                                            {
+                                                if (!await SendApiResponse(BuildPacketResponse(new ClassApiPeerPacketSendMiningShareResponse()
+                                                {
+                                                    MiningPoWShareStatus = ClassMiningPoWaCEnumStatus.INVALID_BLOCK_HEIGHT,
+                                                    PacketTimestamp = TaskManager.TaskManager.CurrentTimestampSecond
+                                                }, ClassPeerApiPacketResponseEnum.SEND_MINING_SHARE_RESPONSE)))
+                                                {
+                                                    // Can't send packet.
+                                                    return false;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                break;
+
+                            // Invalid Packet.
+                            default:
+                                {
+                                    ClassLog.WriteLine("Unknown packet type received: " + apiPeerPacketObjectSend.PacketType,
+                                        ClassEnumLogLevelType.LOG_LEVEL_API_SERVER,
+                                        ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MEDIUM_PRIORITY);
+                                    typeResponse = ClassPeerApiPacketResponseEnum.INVALID_PACKET;
+                                }
+                                break;
+                        }
+                    }
+                }
+
+                return await SendResponseType(typeResponse);
+            }
+            catch (Exception error)
+            {
+                ClassLog.WriteLine("Error to handle API Packet received. Exception: " + error.Message,
+                    ClassEnumLogLevelType.LOG_LEVEL_API_SERVER,
+                    ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MEDIUM_PRIORITY);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Handle Get request packets sent by a client.
+        /// </summary>
+        private async Task<bool> HandleApiClientGetPacket(string packetReceived)
+        {
+            try
+            {
+                ClassPeerApiPacketResponseEnum typeResponse = ClassPeerApiPacketResponseEnum.OK;
+
+                string contentRequest = string.Empty;
+                string request = string.Empty;
+
+                if (packetReceived.Contains("/"))
+                {
+                    request = packetReceived.Split(new[] { "/" }, StringSplitOptions.None)[0];
+                    contentRequest = packetReceived.Split(new[] { "/" }, StringSplitOptions.None)[1];
+                }
+
+                switch (contentRequest.IsNullOrEmpty(false, out _) ? packetReceived : request)
+                {
+                    case ClassPeerApiEnumGetRequest.GetAlive:
+                        {
+                            if (!await SendResponseType(typeResponse))
+                                return false;
+                        }
+                        break;
+
+                    case ClassPeerApiEnumGetRequest.GetBlockTemplate:
+                        {
+                            long currentBlockHeight = ClassBlockchainStats.GetLastBlockHeight();
+                            if (currentBlockHeight > 0)
+                            {
+                                if (!await SendApiResponse(BuildPacketResponse(new ClassApiPeerPacketSendBlockTemplate()
+                                {
+                                    CurrentBlockHeight = currentBlockHeight,
+                                    CurrentBlockDifficulty = ClassBlockchainDatabase.BlockchainMemoryManagement[currentBlockHeight, _cancellationTokenApiClient].BlockDifficulty,
+                                    CurrentBlockHash = ClassBlockchainDatabase.BlockchainMemoryManagement[currentBlockHeight, _cancellationTokenApiClient].BlockHash,
+                                    LastTimestampBlockFound = ClassBlockchainDatabase.BlockchainMemoryManagement[currentBlockHeight, _cancellationTokenApiClient].TimestampCreate,
+                                    CurrentMiningPoWaCSetting = BlockchainSetting.CurrentMiningPoWaCSettingObject(currentBlockHeight),
+                                    PacketTimestamp = TaskManager.TaskManager.CurrentTimestampSecond
+                                }, ClassPeerApiPacketResponseEnum.SEND_BLOCK_TEMPLATE)))
+                                    return false;
+                            }
+                            else
+                                typeResponse = ClassPeerApiPacketResponseEnum.OK;
+                        }
+                        break;
+
+                    case ClassPeerApiEnumGetRequest.GetNetworkStats:
+                        {
+                            if (!await SendApiResponse(BuildPacketResponse(new ClassApiPeerPacketSendNetworkStats()
+                            {
+                                BlockchainNetworkStatsObject = ClassBlockchainStats.BlockchainNetworkStatsObject,
+                                PacketTimestamp = TaskManager.TaskManager.CurrentTimestampSecond
+                            }, ClassPeerApiPacketResponseEnum.SEND_NETWORK_STATS)))
+                                return false;
+                        }
+                        break;
+
+                    case ClassPeerApiEnumGetRequest.GetLastBlockHeightUnlocked:
+                        {
+                            if (!await SendApiResponse(BuildPacketResponse(new ClassApiPeerPacketSendBlockHeight()
+                            {
+                                BlockHeight = await ClassBlockchainStats.GetLastBlockHeightUnlocked(_cancellationTokenApiClient),
+                                PacketTimestamp = TaskManager.TaskManager.CurrentTimestampSecond
+                            }, ClassPeerApiPacketResponseEnum.SEND_LAST_BLOCK_HEIGHT_UNLOCKED)))
+                                return false;
+                        }
+                        break;
+
+                    case ClassPeerApiEnumGetRequest.GetLastBlockHeight:
+                        {
+                            if (!await SendApiResponse(BuildPacketResponse(new ClassApiPeerPacketSendBlockHeight()
+                            {
+                                BlockHeight = ClassBlockchainStats.GetLastBlockHeight(),
+                                PacketTimestamp = TaskManager.TaskManager.CurrentTimestampSecond
+                            }, ClassPeerApiPacketResponseEnum.SEND_LAST_BLOCK_HEIGHT)))
+                                return false;
+                        }
+                        break;
+
+                    case ClassPeerApiEnumGetRequest.GetLastBlockHeightTransactionConfirmation:
+                        {
+                            if (!await SendApiResponse(BuildPacketResponse(new ClassApiPeerPacketSendBlockHeight()
+                            {
+                                BlockHeight = await ClassBlockchainStats.GetLastBlockHeightTransactionConfirmationDone(_cancellationTokenApiClient),
+                                PacketTimestamp = TaskManager.TaskManager.CurrentTimestampSecond
+                            }, ClassPeerApiPacketResponseEnum.SEND_LAST_BLOCK_HEIGHT_TRANSACTION_CONFIRMATION)))
+                                return false;
+                        }
+                        break;
+
+                    case ClassPeerApiEnumGetRequest.GetMemPoolTransactionCount:
+                        {
+                            if (!await SendApiResponse(BuildPacketResponse(new ClassApiPeerPacketSendMemPoolTransactionCount()
+                            {
+                                TransactionCount = ClassMemPoolDatabase.GetCountMemPoolTx,
+                                PacketTimestamp = TaskManager.TaskManager.CurrentTimestampSecond
+                            }, ClassPeerApiPacketResponseEnum.SEND_MEMPOOL_TRANSACTION_COUNT)))
+                                return false;
+                        }
+                        break;
+
+                    case ClassPeerApiEnumGetRequest.GetMemPoolBlockHeights:
+                        {
+                            using (DisposableList<long> listMemPoolBlockHeights = await ClassMemPoolDatabase.GetMemPoolListBlockHeight(_cancellationTokenApiClient))
+                            {
+                                if (!await SendApiResponse(BuildPacketResponse(new ClassApiPeerPacketSendMemPoolBlockHeights()
+                                {
+                                    ListBlockHeights = listMemPoolBlockHeights.GetList,
+                                    PacketTimestamp = TaskManager.TaskManager.CurrentTimestampSecond
+                                }, ClassPeerApiPacketResponseEnum.SEND_MEMPOOL_TRANSACTION_COUNT)))
+                                    return false;
+                            }
+                        }
+                        break;
+
+                    case ClassPeerApiEnumGetRequest.GetBlockchainExplorer:
+                        {
+                            if (!await SendApiResponse(GetBlockchainExplorerContent(), "text/html; charset=utf-8"))
+                                return false;
+                        }
+                        break;
+
+                    case ClassPeerApiEnumGetRequest.GetBlockFromHeight:
+                        {
+                            if (long.TryParse(contentRequest, out long blockHeight) &&
+                                blockHeight >= BlockchainSetting.GenesisBlockHeight &&
+                                blockHeight <= ClassBlockchainStats.GetLastBlockHeight())
+                            {
+                                ClassBlockObject blockObject = await ClassBlockchainDatabase.BlockchainMemoryManagement.GetBlockDataStrategy(blockHeight, true, false, _cancellationTokenApiClient);
+
+                                if (blockObject == null)
+                                    return false;
+
+                                if (!await SendApiResponse(BuildPacketResponse(new ClassApiPeerPacketSendBlock()
+                                {
+                                    Block = blockObject,
+                                    PacketTimestamp = TaskManager.TaskManager.CurrentTimestampSecond
+                                }, ClassPeerApiPacketResponseEnum.SEND_MEMPOOL_TRANSACTION_COUNT)))
+                                    return false;
+                            }
+                            else
+                                return false;
+                        }
+                        break;
+
+                    case ClassPeerApiEnumGetRequest.GetBlockFromHash:
+                        {
+                            if (!contentRequest.IsNullOrEmpty(false, out _) &&
+                                ClassBlockUtility.GetBlockTemplateFromBlockHash(contentRequest, out ClassBlockTemplateObject blockTemplateObject) &&
+                                blockTemplateObject != null &&
+                                blockTemplateObject.BlockHeight >= BlockchainSetting.GenesisBlockHeight &&
+                                blockTemplateObject.BlockHeight <= ClassBlockchainStats.GetLastBlockHeight())
+                            {
+                                ClassBlockObject blockObject = await ClassBlockchainDatabase.BlockchainMemoryManagement.GetBlockDataStrategy(blockTemplateObject.BlockHeight, true, false, _cancellationTokenApiClient);
+
+                                if (blockObject == null)
+                                    return false;
+
+                                if (!await SendApiResponse(BuildPacketResponse(new ClassApiPeerPacketSendBlock()
+                                {
+                                    Block = blockObject,
+                                    PacketTimestamp = TaskManager.TaskManager.CurrentTimestampSecond
+                                }, ClassPeerApiPacketResponseEnum.SEND_MEMPOOL_TRANSACTION_COUNT)))
+                                    return false;
+                            }
+                            else
+                                return false;
+                        }
+                        break;
+
+                    case ClassPeerApiEnumGetRequest.GetTransactionFromHash:
+                        {
+                            if (contentRequest.IsNullOrEmpty(false, out _))
+                                return false;
+
+                            long blockHeight = ClassTransactionUtility.GetBlockHeightFromTransactionHash(contentRequest);
+
+                            if (blockHeight < BlockchainSetting.GenesisBlockHeight ||
+                                blockHeight > await ClassBlockchainStats.GetLastBlockHeightUnlocked(_cancellationTokenApiClient))
+                                return false;
+
+                            ClassBlockObject blockObject = await ClassBlockchainDatabase.BlockchainMemoryManagement.GetBlockDataStrategy(blockHeight, true, false, _cancellationTokenApiClient);
+
+                            if (blockObject == null)
+                                return false;
+
+                            if (!blockObject.BlockTransactions.ContainsKey(contentRequest.ToUpper()))
+                                return false;
+
+                            if (!await SendApiResponse(BuildPacketResponse(new ClassApiPeerPacketSendBlockTransaction()
+                            {
+                                BlockTransaction = blockObject.BlockTransactions[contentRequest.ToUpper()],
+                                PacketTimestamp = TaskManager.TaskManager.CurrentTimestampSecond
+                            }, ClassPeerApiPacketResponseEnum.SEND_BLOCK_TRANSACTION)))
+                                return false;
+                        }
+                        break;
+
+                    case ClassPeerApiEnumGetRequest.GetTransactionFromId:
+                        {
+                            if (contentRequest.IsNullOrEmpty(false, out _))
+                                return false;
+
+                            if (!long.TryParse(contentRequest, out long transactionId))
+                                return false;
+
+                            long totalTransaction = 0;
+                            bool found = false;
+                            long lastBlockHeight = ClassBlockchainStats.GetLastBlockHeight();
+                            ClassBlockTransaction blockTransactionResult = null;
+
+                            for (long i = 1; i < lastBlockHeight; i++)
+                            {
+                                if (found)
+                                    break;
+
+                                ClassBlockObject blockObject = await ClassBlockchainDatabase.BlockchainMemoryManagement.GetBlockDataStrategy(i, true, false, _cancellationTokenApiClient);
+
+                                if (blockObject == null || blockObject.BlockTransactions == null)
+                                    return false;
+
+                                foreach (ClassBlockTransaction blockTransaction in blockObject.BlockTransactions.Values)
+                                {
+                                    totalTransaction++;
+
+                                    if (totalTransaction == transactionId)
+                                    {
+                                        blockTransactionResult = blockTransaction;
+                                        found = true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (blockTransactionResult == null)
+                                break;
+
+                            if (!await SendApiResponse(BuildPacketResponse(new ClassApiPeerPacketSendBlockTransaction()
+                            {
+                                BlockTransaction = blockTransactionResult,
+                                PacketTimestamp = TaskManager.TaskManager.CurrentTimestampSecond
+                            }, ClassPeerApiPacketResponseEnum.SEND_BLOCK_TRANSACTION)))
+                                return false;
+                        }
+                        break;
+
+                    default:
+                        {
+                            if (!packetReceived.IsNullOrEmpty(false, out _))
+                            {
+                                if (File.Exists(_peerWebDirectory + "/" + packetReceived))
+                                {
+                                    if (!await ReadAndSendWebsiteFile((_peerWebDirectory + "/" + packetReceived)))
+                                        return false;
+                                }
+                                else
+                                {
+                                    if (!await SendApiResponse("<h1>File not found</h1>.", "text/html; charset=utf-8"))
+                                        return false;
+                                }
+                            }
+                            else
+                            {
+                                if (File.Exists(_peerWebDirectory + "/index.html"))
+                                {
+                                    if (!await ReadAndSendWebsiteFile((_peerWebDirectory + "/index.html")))
+                                        return false;
+                                }
+                                else
+                                {
+                                    if (!await SendApiResponse(BlockchainSetting.CoinName + " API."))
+                                        return false;
+                                }
+                            }
+                        }
+                        break;
+                }
+
+                return await SendResponseType(typeResponse);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Read and send file content website.
+        /// PERF: ReadAllText/ReadAllBytes (évite concat ligne par ligne).
+        /// </summary>
+        private async Task<bool> ReadAndSendWebsiteFile(string filePath)
+        {
+            try
+            {
+                string ext = Path.GetExtension(filePath)?.ToLowerInvariant();
+
+                if (ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".png" || ext == ".gif" || ext == ".webp" || ext == ".avif" || ext == ".svg")
+                {
+                    byte[] bytes = File.ReadAllBytes(filePath);
+                    return await SendApiResponseByteArray(bytes, GeWebsiteTypeDocument(filePath));
+                }
+
+                // Texte: lecture complète en une fois.
+                string content = File.ReadAllText(filePath, Encoding.UTF8);
+                return await SendApiResponse(content, GeWebsiteTypeDocument(filePath));
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get the file content document type.
+        /// </summary>
+        private string GeWebsiteTypeDocument(string filePath)
+        {
+            string ext = Path.GetExtension(filePath)?.ToLowerInvariant();
+
+            switch (ext)
+            {
+                case ".html":
+                case ".htm":
+                    return "text/html; charset=utf-8";
+                case ".js":
+                    return "text/javascript; charset=utf-8";
+                case ".css":
+                    return "text/css; charset=utf-8";
+                case ".json":
+                    return "application/json; charset=utf-8";
+                case ".png":
+                    return "image/png";
+                case ".jpg":
+                case ".jpeg":
+                    return "image/jpeg";
+                case ".gif":
+                    return "image/gif";
+                case ".bmp":
+                    return "image/bmp";
+                case ".svg":
+                    return "image/svg+xml";
+                case ".webp":
+                    return "image/webp";
+                case ".avif":
+                    return "image/avif";
+                default:
+                    return "application/octet-stream";
+            }
+        }
+
+        /// <summary>
+        /// Send a response type.
+        /// </summary>
+        private async Task<bool> SendResponseType(ClassPeerApiPacketResponseEnum typeResponse)
+        {
+            if (!await SendApiResponse(BuildPacketResponseStatus(typeResponse)))
+                return false;
+
+            if (typeResponse != ClassPeerApiPacketResponseEnum.OK)
+                return false;
+
+            return true;
+        }
+
+        /// <summary>
+        /// Send an API Response to the client.
+        /// PERF: Content-Length en octets UTF-8 + Buffer.BlockCopy.
+        /// </summary>
+        private async Task<bool> SendApiResponse(string packetToSend, string htmlContentType = "text/json")
+        {
+            byte[] bodyBytes = Encoding.UTF8.GetBytes(packetToSend ?? string.Empty);
+            string header =
+                "HTTP/1.1 200 OK\r\n" +
+                "Content-Type: " + htmlContentType + "\r\n" +
+                "Content-Length: " + bodyBytes.Length + "\r\n" +
+                "Access-Control-Allow-Origin: *\r\n" +
+                "\r\n";
+
+            byte[] headerBytes = Encoding.ASCII.GetBytes(header);
+            byte[] dataCompleted = new byte[headerBytes.Length + bodyBytes.Length];
+
+            Buffer.BlockCopy(headerBytes, 0, dataCompleted, 0, headerBytes.Length);
+            Buffer.BlockCopy(bodyBytes, 0, dataCompleted, headerBytes.Length, bodyBytes.Length);
+
+            bool sendResult = await _clientSocket.TrySendSplittedPacket(
+                dataCompleted,
+                _cancellationTokenApiClient,
+                _peerNetworkSettingObject.PeerMaxPacketSplitedSendSize,
+                true);
+
+            PacketResponseSent = sendResult;
+            return sendResult;
+        }
+
+        /// <summary>
+        /// Send an API Response to the client.
+        /// PERF: header ASCII + Buffer.BlockCopy.
+        /// </summary>
+        private async Task<bool> SendApiResponseByteArray(byte[] packetToSend, string htmlContentType = "text/json")
+        {
+            byte[] bodyBytes = packetToSend ?? Array.Empty<byte>();
+
+            string header =
+                "HTTP/1.1 200 OK\r\n" +
+                "Content-Type: " + htmlContentType + "\r\n" +
+                "Content-Length: " + bodyBytes.Length + "\r\n" +
+                "Access-Control-Allow-Origin: *\r\n" +
+                "\r\n";
+
+            byte[] headerBytes = Encoding.ASCII.GetBytes(header);
+            byte[] dataCompleted = new byte[headerBytes.Length + bodyBytes.Length];
+
+            Buffer.BlockCopy(headerBytes, 0, dataCompleted, 0, headerBytes.Length);
+            if (bodyBytes.Length > 0)
+                Buffer.BlockCopy(bodyBytes, 0, dataCompleted, headerBytes.Length, bodyBytes.Length);
+
+            bool sendResult = await _clientSocket.TrySendSplittedPacket(
+                dataCompleted,
+                _cancellationTokenApiClient,
+                _peerNetworkSettingObject.PeerMaxPacketSplitedSendSize,
+                true);
+
+            PacketResponseSent = sendResult;
+            return sendResult;
+        }
+
+        #endregion
+
+        #region Other functions used for packets received to handle.
+
+        /// <summary>
+        /// Try to deserialize the packet content object received.
+        /// </summary>
+        private T TryDeserializedPacketContent<T>(string packetContentObject)
+        {
+            if (ClassUtility.TryDeserialize(packetContentObject, out T apiPeerPacketDeserialized))
+                return apiPeerPacketDeserialized;
+
+            return default;
+        }
+
+        /// <summary>
+        /// Serialise packet response to send.
+        /// </summary>
+        private string BuildPacketResponse<T>(T packetResponse, ClassPeerApiPacketResponseEnum packetResponseType)
+        {
+            return ClassUtility.SerializeData(new ClassApiPeerPacketObjetReceive()
+            {
+                PacketType = packetResponseType,
+                PacketObjectSerialized = ClassUtility.SerializeData(packetResponse)
+            });
+        }
+
+        /// <summary>
+        /// Serialise packet response type to send.
+        /// </summary>
+        private string BuildPacketResponseStatus(ClassPeerApiPacketResponseEnum packetResponseType)
+        {
+            return ClassUtility.SerializeData(new ClassApiPeerPacketObjetReceive()
+            {
+                PacketType = packetResponseType,
+                PacketObjectSerialized = null
+            });
+        }
+
+        /// <summary>
+        /// PERF: recherche d'un motif dans un buffer (sans allocations).
+        /// </summary>
+        private static int IndexOf(byte[] buffer, int bufferLength, byte[] pattern)
+        {
+            if (buffer == null || pattern == null || pattern.Length == 0 || bufferLength < pattern.Length)
+                return -1;
+
+            for (int i = 0; i <= bufferLength - pattern.Length; i++)
+            {
+                bool match = true;
+                for (int j = 0; j < pattern.Length; j++)
+                {
+                    if (buffer[i + j] != pattern[j])
+                    {
+                        match = false;
+                        break;
+                    }
+                }
+
+                if (match)
+                    return i;
+            }
+
+            return -1;
+        }
+
+        /// <summary>
+        /// PERF: extraction Content-Length (case-insensitive) depuis les headers HTTP.
+        /// </summary>
+        private static int ExtractContentLength(string headerText)
+        {
+            if (string.IsNullOrEmpty(headerText))
+                return -1;
+
+            const string key = "Content-Length:";
+            int idx = headerText.IndexOf(key, StringComparison.OrdinalIgnoreCase);
+            if (idx < 0)
+                return -1;
+
+            int lineEnd = headerText.IndexOf("\r\n", idx, StringComparison.Ordinal);
+            if (lineEnd < 0)
+                lineEnd = headerText.Length;
+
+            string value = headerText.Substring(idx + key.Length, lineEnd - (idx + key.Length)).Trim();
+            return int.TryParse(value, out int result) ? result : -1;
+        }
+
+        /// <summary>
+        /// Return the blockchain explorer content string.
+        /// </summary>
+        private string GetBlockchainExplorerContent()
+        {
+            return ClassApiBlockchainExplorerHtmlContent.Content
+                .Replace(ClassApiBlockchainExplorerHtmlContent.ContentCoinName, BlockchainSetting.CoinName)
+                .Replace(ClassApiBlockchainExplorerHtmlContent.ContentApiHost, _peerNetworkSettingObject.ListenApiIp)
+                .Replace(ClassApiBlockchainExplorerHtmlContent.ContentApiPort, _peerNetworkSettingObject.ListenApiPort.ToString());
+        }
+
+        #endregion
+    }
+}
