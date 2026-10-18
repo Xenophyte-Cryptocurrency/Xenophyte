@@ -86,6 +86,7 @@ namespace SeguraChain_Lib.Instance.Node.Tasks
             StartTaskUpdateBlockchainNetworkStats();
             StartTaskUpdateNodeInternalStats();
             StartTaskUpdateGarbageCollection();
+            StartTaskUpdatePeerSyncTask();
         }
 
         /// <summary>
@@ -413,6 +414,37 @@ namespace SeguraChain_Lib.Instance.Node.Tasks
                 }
 
             }), 0, _cancellationTokenSourceUpdateTask).Wait();
+        }
+
+        /// <summary>
+        /// Start a task this one stop the sync and restart this one after 24 hours.
+        /// </summary>
+        private void StartTaskUpdatePeerSyncTask()
+        {
+            TaskManager.TaskManager.InsertTask(new Action(async () =>
+            {
+                while (_nodeInstance.PeerToolStatus)
+                {
+
+                    try
+                    {
+                        if (_cancellationTokenSourceUpdateTask.IsCancellationRequested)
+                            break;
+
+                        _nodeInstance.PeerNetworkClientSyncObject.StopPeerSyncTask();
+                        _nodeInstance.PeerNetworkClientSyncObject.EnablePeerSyncTask();
+                    }
+                    catch
+                    {
+                        // Ignored, can happen depending the state of the node, for example if this one is in pending to close for example.
+                    }
+
+
+                    await Task.Delay(84600);
+                }
+
+            }), 0, _cancellationTokenSourceUpdateTask).Wait();
+
         }
 
         /// <summary>
