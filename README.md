@@ -1,22 +1,11 @@
-<h2>SeguraChain is complete to be use in production mode, but almost every tools are not completed.</h2>
+<h2>Xenophyte is complete to be use in production mode, but almost every tools are not completed.</h2>
 <h3> You can setup your own blockchain from ChatGPT or Claude AI or follow wikipages </h3>
 <h2>If you like the project, please provide a Star</h2>
-Summary: SeguraChain (Secured Chain translated from Spanish) is a technology developed mainly in C#,
+Summary: Xenophyte (Secured Chain translated from Spanish) is a technology developed mainly in C#,
 it allows to easily create and understand a decentralized blockchain process, it can be configured to support a sovereign update system,
 allowing to include updates on it without editing the content of the Blockchain. 
 
-![desktop-wallet](https://github.com/SeguraChain/SeguraChain/assets/96837446/a4342db7-d4d3-4798-bee2-28202ba77f31)
-
-
-
-<h3>Please follow this wikipage to setup your own blockchain:</h3>
-
-https://github.com/SeguraChain/SeguraChain/wiki/Setup-your-own-Blockchain
-
-
 Planned for the hard fork of **Xenophyte** once completed. > https://xenophyte.com/
-
-Planned future website: https://segurachain.com/
 
 Please read the whitepaper document, the document is not yet complete but most of important details are actually written.
 
@@ -77,24 +66,6 @@ Everything has been developed in C#, and support NET5/NET6/NET7/NET8, a downgrad
 
 > **Complete the new packet system data , passing new random packet format by auth keys and unique id's [90%]**. 
 
-<h3>Setup:</h3>
 
-A simple wiki page who explain how to setup your Blockchain:
-https://github.com/SeguraChain/SeguraChain/wiki/Setup-your-own-Blockchain
-
-Desktop Wallet description page:
-https://github.com/SeguraChain/SeguraChain/wiki/Description-of-the-Desktop-Wallet
-
-Compilation Platform Target:
-https://github.com/SeguraChain/SeguraChain/wiki/Compilation-Platform-Target
-
-
-<h3>Contact</h3>
-
-Discord: https://discord.gg/mvc7v9FDyJ
-  
-Every devs and potential users can send me their returns about the project, potential fix, issues and more.
-  
-  
 
 
