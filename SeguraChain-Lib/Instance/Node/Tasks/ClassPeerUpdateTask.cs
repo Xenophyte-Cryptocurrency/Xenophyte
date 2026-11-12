@@ -432,6 +432,9 @@ namespace SeguraChain_Lib.Instance.Node.Tasks
                             break;
 
                         _nodeInstance.PeerNetworkClientSyncObject.StopPeerSyncTask();
+
+                        await Task.Delay(60 * 1000);
+
                         _nodeInstance.PeerNetworkClientSyncObject.EnablePeerSyncTask();
                     }
                     catch
@@ -440,7 +443,7 @@ namespace SeguraChain_Lib.Instance.Node.Tasks
                     }
 
 
-                    await Task.Delay(84600);
+                    await Task.Delay(((24 * 60) * 60) * 1000);
                 }
 
             }), 0, _cancellationTokenSourceUpdateTask).Wait();

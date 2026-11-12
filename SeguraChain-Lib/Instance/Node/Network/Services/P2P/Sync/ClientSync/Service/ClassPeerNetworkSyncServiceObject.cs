@@ -2446,14 +2446,17 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Ser
                 }
                 else
                 {
-                    peerObject = ClassPeerKeysManager.GeneratePeerObject(peerIp, peerPort, peerApiPort, peerUniqueId, cancellation);
-                    peerObject.PeerLastPacketReceivedTimestamp = TaskManager.TaskManager.CurrentTimestampSecond + _peerNetworkSettingObject.PeerMaxDelayKeepAliveStats;
-                    if (!_peerDatabase[peerIp, cancellation].TryAdd(peerUniqueId, peerObject))
+                    if (!peerUniqueId.IsNullOrEmpty(false, out _))
                     {
-                        if (_peerDatabase.UpdatePeer(peerIp, peerUniqueId, peerObject, cancellation))
+                        peerObject = ClassPeerKeysManager.GeneratePeerObject(peerIp, peerPort, peerApiPort, peerUniqueId, cancellation);
+                        peerObject.PeerLastPacketReceivedTimestamp = TaskManager.TaskManager.CurrentTimestampSecond + _peerNetworkSettingObject.PeerMaxDelayKeepAliveStats;
+                        if (!_peerDatabase[peerIp, cancellation].TryAdd(peerUniqueId, peerObject))
                         {
-                            await ClassPeerKeysManager.UpdatePeerInternalKeys(_peerDatabase, peerIp, peerPort, peerApiPort, peerUniqueId, cancellation, _peerNetworkSettingObject, forceUpdate);
-                            targetExist = true;
+                            if (_peerDatabase.UpdatePeer(peerIp, peerUniqueId, peerObject, cancellation))
+                            {
+                                await ClassPeerKeysManager.UpdatePeerInternalKeys(_peerDatabase, peerIp, peerPort, peerApiPort, peerUniqueId, cancellation, _peerNetworkSettingObject, forceUpdate);
+                                targetExist = true;
+                            }
                         }
                     }
                 }
