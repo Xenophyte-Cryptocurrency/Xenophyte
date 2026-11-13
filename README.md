@@ -1,11 +1,10 @@
 <h2>Xenophyte is complete to be use in production mode, but almost every tools are not completed.</h2>
 <h3> You can setup your own blockchain from ChatGPT or Claude AI or follow wikipages </h3>
 <h2>If you like the project, please provide a Star</h2>
-Summary: Xenophyte (Secured Chain translated from Spanish) is a technology developed mainly in C#,
+Summary: Base of SeguraChain (Secured Chain translated from Spanish) is a technology developed mainly in C#,
 it allows to easily create and understand a decentralized blockchain process, it can be configured to support a sovereign update system,
 allowing to include updates on it without editing the content of the Blockchain. 
 
-Planned for the hard fork of **Xenophyte** once completed. > https://xenophyte.com/
 
 Please read the whitepaper document, the document is not yet complete but most of important details are actually written.
 
