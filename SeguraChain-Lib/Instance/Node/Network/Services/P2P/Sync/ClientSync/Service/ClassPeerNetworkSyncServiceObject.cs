@@ -572,8 +572,6 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Ser
 
                 while (_peerSyncStatus)
                 {
-
-
                     if (_peerDatabase.Count > 0)
                     {
                         long lastBlockHeight = ClassBlockchainStats.GetLastBlockHeight();
@@ -582,7 +580,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Ser
                         bool forceDisconnect = false;
 
                         // If true, run every peer check tasks functions.
-                        if (peerTargetList.Count > 0)
+                        if (peerTargetList?.Count > 0)
                         {
 
                             #region Sync block objects and transaction(s).
@@ -613,70 +611,71 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Ser
                                         {
                                             ClassLog.WriteLine(syncBlockResult.Count + " block(s) synced. Sync now block transaction(s) of them..", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY);
 
-
                                             int index = 0;
 
                                             foreach (ClassBlockObject blockObject in syncBlockResult.GetList.Values)
                                             {
-                                                if (blockObject?.BlockHeight > lastBlockHeightUnlocked)
+                                                TaskManager.TaskManager.InsertTask(async () =>
                                                 {
-                                                    if (blockObject.BlockStatus == ClassBlockEnumStatus.LOCKED)
-                                                        break;
-
-                                                    if (blockObject.BlockHeight > BlockchainSetting.GenesisBlockHeight)
+                                                    if (blockObject?.BlockHeight > lastBlockHeightUnlocked)
                                                     {
-                                                        ClassBlockObject blockInformation = await ClassBlockchainStats.GetBlockInformationData(blockObject.BlockHeight - 1, _cancellationTokenServiceSync);
+                                                        if (blockObject.BlockStatus == ClassBlockEnumStatus.LOCKED)
+                                                            return;
 
-                                                        if (blockInformation == null || blockInformation.BlockStatus == ClassBlockEnumStatus.LOCKED)
+                                                        if (blockObject.BlockHeight > BlockchainSetting.GenesisBlockHeight)
                                                         {
-                                                            ClassLog.WriteLine("The block height: " + blockObject.BlockHeight + " cannot be synced, the previous one is locked. Attempt to fix the sync..", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Red);
+                                                            ClassBlockObject blockInformation = await ClassBlockchainStats.GetBlockInformationData(blockObject.BlockHeight - 1, _cancellationTokenServiceSync);
 
-                                                            using (DisposableList<long> listBlockToFix = new DisposableList<long>())
+                                                            if (blockInformation == null || blockInformation.BlockStatus == ClassBlockEnumStatus.LOCKED)
                                                             {
-                                                                listBlockToFix.Add(blockObject.BlockHeight - 1);
-                                                                using (var listBlock = await StartAskBlockObjectFromListPeerTarget(peerTargetList, listBlockToFix, true))
+                                                                ClassLog.WriteLine("The block height: " + blockObject.BlockHeight + " cannot be synced, the previous one is locked. Attempt to fix the sync..", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Red);
+
+                                                                using (DisposableList<long> listBlockToFix = new DisposableList<long>())
                                                                 {
-                                                                    if (listBlock.Count > 0)
+                                                                    listBlockToFix.Add(blockObject.BlockHeight - 1);
+                                                                    using (var listBlock = await StartAskBlockObjectFromListPeerTarget(peerTargetList, listBlockToFix, true))
                                                                     {
-                                                                        if (listBlock[blockObject.BlockHeight - 1]?.BlockStatus == ClassBlockEnumStatus.UNLOCKED)
+                                                                        if (listBlock.Count > 0)
                                                                         {
-
-                                                                            if (await ClassBlockchainDatabase.BlockchainMemoryManagement.InsertOrUpdateBlockObjectToCache(listBlock[blockObject.BlockHeight - 1], true, _cancellationTokenServiceSync))
+                                                                            if (listBlock[blockObject.BlockHeight - 1]?.BlockStatus == ClassBlockEnumStatus.UNLOCKED)
                                                                             {
-                                                                                await ClassMemPoolDatabase.RemoveMemPoolAllTxFromBlockHeightTarget(listBlock[blockObject.BlockHeight - 1].BlockHeight, _cancellationTokenServiceSync);
 
-                                                                                ClassLog.WriteLine("The block height: " + listBlock[blockObject.BlockHeight - 1].BlockHeight + " data updated successfully, continue to sync.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Green);
+                                                                                if (await ClassBlockchainDatabase.BlockchainMemoryManagement.InsertOrUpdateBlockObjectToCache(listBlock[blockObject.BlockHeight - 1], true, _cancellationTokenServiceSync))
+                                                                                {
+                                                                                    await ClassMemPoolDatabase.RemoveMemPoolAllTxFromBlockHeightTarget(listBlock[blockObject.BlockHeight - 1].BlockHeight, _cancellationTokenServiceSync);
+
+                                                                                    ClassLog.WriteLine("The block height: " + listBlock[blockObject.BlockHeight - 1].BlockHeight + " data updated successfully, continue to sync.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Green);
+                                                                                }
                                                                             }
-                                                                        }
 
-                                                                        ClassLog.WriteLine("The block height: " + blockObject.BlockHeight + " cannot be synced, the previous one is locked. Fix completed.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Green);
+                                                                            ClassLog.WriteLine("The block height: " + blockObject.BlockHeight + " cannot be synced, the previous one is locked. Fix completed.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Green);
+                                                                        }
                                                                     }
                                                                 }
                                                             }
-                                                            break;
                                                         }
+
+                                                        blockObject.BlockUnlockValid = true;
+                                                        blockObject.BlockNetworkAmountConfirmations = BlockchainSetting.BlockAmountNetworkConfirmations;
+
+                                                        if (await ClassBlockchainDatabase.BlockchainMemoryManagement.InsertOrUpdateBlockObjectToCache(blockObject, true, _cancellationTokenServiceSync))
+                                                        {
+                                                            await ClassMemPoolDatabase.RemoveMemPoolAllTxFromBlockHeightTarget(blockObject.BlockHeight, _cancellationTokenServiceSync);
+
+                                                            ClassLog.WriteLine("The block height: " + blockObject.BlockHeight + " data updated successfully, continue to sync.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Green);
+                                                        }
+
                                                     }
+                                                    else
+                                                        ClassLog.WriteLine("A block object target synced is empty, retry again later.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY);
 
-                                                    blockObject.BlockUnlockValid = true;
-                                                    blockObject.BlockNetworkAmountConfirmations = BlockchainSetting.BlockAmountNetworkConfirmations;
+                                                    index++;
 
-                                                    if (await ClassBlockchainDatabase.BlockchainMemoryManagement.InsertOrUpdateBlockObjectToCache(blockObject, true, _cancellationTokenServiceSync))
-                                                    {
-                                                        await ClassMemPoolDatabase.RemoveMemPoolAllTxFromBlockHeightTarget(blockObject.BlockHeight, _cancellationTokenServiceSync);
-
-                                                        ClassLog.WriteLine("The block height: " + blockObject.BlockHeight + " data updated successfully, continue to sync.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Green);
-                                                    }
-
-                                                }
-                                                else
-                                                {
-                                                    ClassLog.WriteLine("A block object target synced is empty, retry again later.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY);
-                                                    break;
-                                                }
-
-                                                index++;
+                                                }, 0, _cancellationTokenServiceSync);
                                             }
 
+                                            while (index < syncBlockResult.Count)
+                                                await Task.Delay(1000, _cancellationTokenServiceSync.Token);
                                         }
                                         else
                                         {
