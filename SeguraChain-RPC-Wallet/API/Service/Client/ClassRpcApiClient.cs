@@ -511,7 +511,7 @@ namespace SeguraChain_RPC_Wallet.API.Service.Client
 
                 using (NetworkStream networkStream = new NetworkStream(_apiTcpClient.Client))
                 {
-                    if (!await networkStream.TrySendSplittedPacket(builder.ToString().GetByteArray(), _apiCheckerCancellationToken, BlockchainSetting.PeerMaxPacketSplitedSendSize))
+                    if (!await networkStream.SendRawAsync(builder.ToString().GetByteArray(), _apiCheckerCancellationToken.Token))
                         sendResult = false;
                 }
             }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -1399,11 +1399,9 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.API.Client
             Buffer.BlockCopy(headerBytes, 0, dataCompleted, 0, headerBytes.Length);
             Buffer.BlockCopy(bodyBytes, 0, dataCompleted, headerBytes.Length, bodyBytes.Length);
 
-            bool sendResult = await _clientSocket.TrySendSplittedPacket(
+            bool sendResult = await _clientSocket.SendRawAsync(
                 dataCompleted,
-                _cancellationTokenApiClient,
-                _peerNetworkSettingObject.PeerMaxPacketSplitedSendSize,
-                true);
+                _cancellationTokenApiClient.Token);
 
             PacketResponseSent = sendResult;
             return sendResult;
@@ -1431,11 +1429,9 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.API.Client
             if (bodyBytes.Length > 0)
                 Buffer.BlockCopy(bodyBytes, 0, dataCompleted, headerBytes.Length, bodyBytes.Length);
 
-            bool sendResult = await _clientSocket.TrySendSplittedPacket(
+            bool sendResult = await _clientSocket.SendRawAsync(
                 dataCompleted,
-                _cancellationTokenApiClient,
-                _peerNetworkSettingObject.PeerMaxPacketSplitedSendSize,
-                true);
+                _cancellationTokenApiClient.Token);
 
             PacketResponseSent = sendResult;
             return sendResult;

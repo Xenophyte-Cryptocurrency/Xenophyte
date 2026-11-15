@@ -2,7 +2,6 @@
 {
     public class ClassPeerPacketSetting
     {
-        public const char PacketPeerSplitSeperator = '*';
         public const int PacketMaxLengthReceive = 1_000_000_000; // Legacy application-level upper bound; TCP framing is binary and length-prefixed.
     }
 

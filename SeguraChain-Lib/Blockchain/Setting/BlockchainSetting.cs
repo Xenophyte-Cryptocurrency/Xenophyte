@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Numerics;
 using SeguraChain_Lib.Blockchain.Mining.Object;
 using SeguraChain_Lib.Blockchain.Setting.Function;
@@ -183,7 +183,6 @@ namespace SeguraChain_Lib.Blockchain.Setting
         public const int PeerMinAvailablePeerSync = 1; // The minimum of required peer(s).
         public const int PeerMaxAuthKeysExpire = 86_400 * 7; // Each week, internal auth keys of a peer are renewed.
         public const int PeerMaxPacketBufferSize = 8_192;
-        public const int PeerMaxPacketSplitedSendSize = 1024;
         public const int PeerDelayDeleteDeadPeer = 600;
         public const int PeerMinPort = 1;
         public const int PeerMaxPort = 65_535;

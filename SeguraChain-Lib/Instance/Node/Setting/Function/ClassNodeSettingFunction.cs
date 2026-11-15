@@ -331,7 +331,6 @@ namespace SeguraChain_Lib.Instance.Node.Setting.Function
                 peerSettingObject.PeerNetworkSettingObject.PeerMaxPacketBufferSize == 0 ||
                 peerSettingObject.PeerNetworkSettingObject.PeerMinPort <= 0 ||
                 peerSettingObject.PeerNetworkSettingObject.PeerMaxPort <= 0 ||
-                peerSettingObject.PeerNetworkSettingObject.PeerMaxPacketSplitedSendSize <= 0 |
                 peerSettingObject.PeerNetworkSettingObject.PeerMaxSemaphoreConnectAwaitDelay <= 0)
             {
                 ClassLog.WriteLine("Error, something is invalid on the peer network setting part, Ensure to not have any delay lower than 1.", ClassEnumLogLevelType.LOG_LEVEL_GENERAL, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY);

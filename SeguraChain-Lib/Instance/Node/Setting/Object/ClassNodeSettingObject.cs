@@ -69,7 +69,6 @@ namespace SeguraChain_Lib.Instance.Node.Setting.Object
         public int PeerMinAvailablePeerSync;
         public int PeerMaxAuthKeysExpire;
         public int PeerMaxPacketBufferSize;
-        public int PeerMaxPacketSplitedSendSize;
         public int PeerMinPort;
         public int PeerMaxPort;
         public int PeerDelayDeleteDeadPeer;
@@ -123,7 +122,6 @@ namespace SeguraChain_Lib.Instance.Node.Setting.Object
             PeerMinAvailablePeerSync = BlockchainSetting.PeerMinAvailablePeerSync;
             PeerMaxAuthKeysExpire = BlockchainSetting.PeerMaxAuthKeysExpire;
             PeerMaxPacketBufferSize = BlockchainSetting.PeerMaxPacketBufferSize;
-            PeerMaxPacketSplitedSendSize = BlockchainSetting.PeerMaxPacketSplitedSendSize;
             PeerDelayDeleteDeadPeer = BlockchainSetting.PeerDelayDeleteDeadPeer;
             PeerMinPort = BlockchainSetting.PeerMinPort;
             PeerMaxPort = BlockchainSetting.PeerMaxPort;

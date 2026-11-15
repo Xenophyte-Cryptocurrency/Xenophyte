@@ -937,55 +937,6 @@ namespace SeguraChain_Lib.Utility
 
 
         /// <summary>
-        /// Return each packet splitted received.
-        /// </summary>
-        /// <returns></returns>
-        public static DisposableList<ClassReadPacketSplitted> GetEachPacketSplitted(byte[] packetBufferOnReceive, DisposableList<ClassReadPacketSplitted> listPacketReceived, CancellationTokenSource cancellation)
-        {
-            string packetData = packetBufferOnReceive.GetStringFromByteArrayUtf8().Replace("\0", "");
-
-            if (listPacketReceived.Disposed)
-                listPacketReceived = new DisposableList<ClassReadPacketSplitted>();
-
-            if (listPacketReceived.Count == 0)
-                listPacketReceived.Add(new ClassReadPacketSplitted());
-
-            if (packetData.Contains(ClassPeerPacketSetting.PacketPeerSplitSeperator))
-            {
-                int countSeperator = packetData.Count(x => x == ClassPeerPacketSetting.PacketPeerSplitSeperator);
-
-                string[] splitPacketData = packetData.Split(new[] { ClassPeerPacketSetting.PacketPeerSplitSeperator }, StringSplitOptions.None);
-
-                int completed = 0;
-
-                foreach (string data in splitPacketData)
-                {
-                    if (cancellation.IsCancellationRequested)
-                        break;
-
-                    listPacketReceived[listPacketReceived.Count > 0 ? listPacketReceived.Count - 1 : 0].Packet += data.Replace(ClassPeerPacketSetting.PacketPeerSplitSeperator.ToString(), "");
-
-                    if (completed < countSeperator)
-                    {
-                        listPacketReceived[listPacketReceived.Count > 0 ? listPacketReceived.Count - 1 : 0].Complete = true;
-                        break;
-                    }
-
-                    completed++;
-                }
-            }
-            else
-            {
-                int index = listPacketReceived.Count > 0 ? listPacketReceived.Count - 1 : 0;
-
-                if (index < listPacketReceived.Count)
-                    listPacketReceived[index].Packet += packetData;
-            }
-
-            return listPacketReceived;
-        }
-
-        /// <summary>
         /// Do the padding of the data content.
         /// </summary>
         /// <param name="data"></param>
@@ -1376,73 +1327,36 @@ namespace SeguraChain_Lib.Utility
     public static class ClassUtilityNetworkStreamExtension
     {
         /// <summary>
-        /// Try to split a packet data to send and try to send it.
+        /// Writes raw bytes to a NetworkStream. TCP handles segmentation;
+        /// application-level delimiters and chunk markers are not used.
         /// </summary>
-        /// <param name="networkStream"></param>
-        /// <param name="packetBytesToSend"></param>
-        /// <param name="cancellation"></param>
-        /// <param name="packetMaxSize"></param>
-        /// <param name="singleWrite"></param>
-        /// <returns></returns>
-        public static async Task<bool> TrySendSplittedPacket(this NetworkStream networkStream, byte[] packetBytesToSend, CancellationTokenSource cancellation, int packetMaxSize, bool singleWrite = false)
+        public static async Task<bool> SendRawAsync(
+            this NetworkStream networkStream,
+            byte[] packetBytesToSend,
+            CancellationToken cancellationToken)
         {
+            if (networkStream == null ||
+                !networkStream.CanWrite ||
+                packetBytesToSend == null ||
+                packetBytesToSend.Length == 0)
+                return false;
 
             try
             {
-                if (networkStream == null || !networkStream.CanWrite)
-                    return false;
-
-                if (packetBytesToSend.Length >= packetMaxSize && !singleWrite)
-                {
-                    int countPacketSendLength = 0;
-
-                    while (countPacketSendLength < packetBytesToSend.Length)
-                    {
-                        if (!networkStream.CanWrite)
-                            return false;
-
-                        int packetSize = 0;
-
-                        if (countPacketSendLength + packetMaxSize >= packetBytesToSend.Length)
-                            packetSize = packetMaxSize;
-                        else
-                            packetSize = packetBytesToSend.Length - countPacketSendLength;
-
-                        if (packetSize <= 0)
-                            break;
-
-                        //byte[] dataBytes = new byte[packetSize];
-
-                        //Array.Copy(packetBytesToSend, countPacketSendLength, dataBytes, 0, packetSize);
-
-                        await networkStream.WriteAsync(packetBytesToSend, countPacketSendLength, packetSize, cancellation.Token);
-                        await networkStream.FlushAsync(cancellation.Token);
-
-                        countPacketSendLength += packetSize;
-
-                        if (!cancellation.IsCancellationRequested)
-                            break;
-
-                    }
-
-                }
-                else
-                {
-                    if (!networkStream.CanWrite)
-                        return false;
-
-                    await networkStream.WriteAsync(packetBytesToSend, 0, packetBytesToSend.Length, cancellation.Token);
-                    await networkStream.FlushAsync(cancellation.Token);
-
-                }
+                await networkStream.WriteAsync(
+                    packetBytesToSend,
+                    0,
+                    packetBytesToSend.Length,
+                    cancellationToken).ConfigureAwait(false);
+                await networkStream.FlushAsync(cancellationToken).ConfigureAwait(false);
+                return true;
             }
             catch
             {
                 return false;
             }
-
-            return true;
         }
+
     }
     
 

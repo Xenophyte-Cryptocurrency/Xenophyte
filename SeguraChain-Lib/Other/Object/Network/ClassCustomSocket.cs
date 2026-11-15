@@ -1,4 +1,4 @@
-
+﻿
 using SeguraChain_Lib.Instance.Node.Network.Enum.P2P.Packet;
 using SeguraChain_Lib.TaskManager;
 using SeguraChain_Lib.Utility;
@@ -14,7 +14,7 @@ namespace SeguraChain_Lib.Other.Object.Network
 {
     /// <summary>
     /// Custom TCP socket class.
-    /// Supports legacy Base64 packets and the XENO binary packet protocol.
+    /// Supports the XENO binary P2P packet protocol and raw HTTP/API streams.
     /// </summary>
     public class ClassCustomSocket
     {
@@ -219,43 +219,37 @@ namespace SeguraChain_Lib.Other.Object.Network
             }
         }
 
-        // ============================================================
-        // LEGACY PACKET SENDING
-        // ============================================================
-
         /// <summary>
-        /// Sends a legacy packet using the existing Base64/split protocol.
+        /// Sends raw HTTP/API bytes without application-level delimiters.
         /// </summary>
-        public async Task<bool> TrySendSplittedPacket(
-            byte[] packetData,
-            CancellationTokenSource cancellation,
-            int packetPeerSplitSeperator,
-            bool singleWrite)
+        public async Task<bool> SendRawAsync(
+            byte[] data,
+            CancellationToken cancellationToken)
         {
+            if (Closed || _networkStream == null || data == null || data.Length == 0)
+                return false;
+
+            bool lockTaken = false;
             try
             {
-                if (Closed ||
-                    _networkStream == null ||
-                    packetData == null ||
-                    packetData.Length == 0 ||
-                    cancellation == null ||
-                    cancellation.IsCancellationRequested)
+                await _binarySendLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+                lockTaken = true;
+
+                if (Closed || _networkStream == null || cancellationToken.IsCancellationRequested)
                     return false;
 
-                return await _networkStream.TrySendSplittedPacket(
-                    packetData,
-                    cancellation,
-                    packetPeerSplitSeperator,
-                    singleWrite).ConfigureAwait(false);
+                return await _networkStream.SendRawAsync(data, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception error)
             {
-                Debug.WriteLine(
-                    "Sending legacy packet exception to " +
-                    GetIp + " | " + error.Message);
+                Debug.WriteLine("Raw send exception to " + GetIp + " | " + error.Message);
+                return false;
             }
-
-            return false;
+            finally
+            {
+                if (lockTaken)
+                    _binarySendLock.Release();
+            }
         }
 
         // ============================================================
@@ -669,7 +663,7 @@ namespace SeguraChain_Lib.Other.Object.Network
         }
 
         // ============================================================
-        // LEGACY PACKET RECEIVING
+        // RAW HTTP/API STREAM RECEIVING
         // ============================================================
 
         /// <summary>
@@ -768,10 +762,6 @@ namespace SeguraChain_Lib.Other.Object.Network
                 try { ctsDelay?.Dispose(); } catch { }
             }
 
-            readPacketData.Data = FilterReadBytes(
-                readPacketData.Data,
-                isHttp);
-
             readPacketData.Status =
                 readPacketData.Data != null &&
                 readPacketData.Data.Length > 0;
@@ -780,7 +770,7 @@ namespace SeguraChain_Lib.Other.Object.Network
         }
 
         // ============================================================
-        // LEGACY PACKET HELPERS
+        // HTTP STREAM HELPERS
         // ============================================================
 
         private static bool ContainsHttpHeaderTerminator(
@@ -797,74 +787,6 @@ namespace SeguraChain_Lib.Other.Object.Network
             }
 
             return false;
-        }
-
-        private static int GetActualLength(byte[] buffer)
-        {
-            if (buffer == null)
-                return 0;
-
-            int end = buffer.Length;
-
-            while (end > 0 && buffer[end - 1] == 0)
-                end--;
-
-            return end;
-        }
-
-        private static byte[] FilterReadBytes(
-            byte[] data,
-            bool isHttp)
-        {
-            if (data == null || data.Length == 0)
-                return Array.Empty<byte>();
-
-            byte[] tmp = new byte[data.Length];
-
-            int count = 0;
-
-            char separator =
-                ClassPeerPacketSetting.PacketPeerSplitSeperator;
-
-            for (int i = 0; i < data.Length; i++)
-            {
-                byte b = data[i];
-
-                if (b == 0)
-                    continue;
-
-                if (!isHttp)
-                {
-                    char c = (char)b;
-
-                    if (ClassUtility.CharIsABase64Character(c) ||
-                        c == separator)
-                    {
-                        tmp[count++] = b;
-                    }
-                }
-                else
-                {
-                    tmp[count++] = b;
-                }
-            }
-
-            if (count == tmp.Length)
-                return tmp;
-
-            byte[] result = new byte[count];
-
-            if (count > 0)
-            {
-                Buffer.BlockCopy(
-                    tmp,
-                    0,
-                    result,
-                    0,
-                    count);
-            }
-
-            return result;
         }
 
         // ============================================================
