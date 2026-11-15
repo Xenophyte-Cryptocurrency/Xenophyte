@@ -1,4 +1,4 @@
-﻿using SeguraChain_Lib.Blockchain.Block.Enum;
+using SeguraChain_Lib.Blockchain.Block.Enum;
 using SeguraChain_Lib.Blockchain.Block.Function;
 using SeguraChain_Lib.Blockchain.Block.Object.Structure;
 using SeguraChain_Lib.Blockchain.Database;
@@ -252,7 +252,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Ser
                     {
                         int peerPort = BlockchainSetting.PeerDefaultPort;
 
-                        TaskManager.TaskManager.InsertTask(new Action(async () =>
+                        TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                         {
                             if (!await SendAskAuthPeerKeys(new ClassPeerNetworkClientSyncObject(_peerDatabase, peerIp, peerPort, string.Empty, _peerNetworkSettingObject, _peerFirewallSettingObject), _cancellationTokenServiceSync, true))
                                 ClassLog.WriteLine("Can't send auth keys to default peer: " + peerIp + ":" + peerPort, ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MEDIUM_PRIORITY);
@@ -319,7 +319,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Ser
 
                                     var copyPeer = new Tuple<string, string>(peerListToInitialize[i].Item1, peerListToInitialize[i].Item2);
 
-                                    await TaskManager.TaskManager.InsertTask(new Action(async () =>
+                                    await TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                                     {
                                         try
                                         {
@@ -426,7 +426,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Ser
                         {
 
                             var i1 = i;
-                            await TaskManager.TaskManager.InsertTask(new Action(async () =>
+                            await TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                             {
 
                                 try
@@ -482,7 +482,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Ser
         private void StartTaskSyncPeerList()
         {
 
-            TaskManager.TaskManager.InsertTask(new Action(async () =>
+            TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
             {
 
                 Dictionary<int, ClassPeerTargetObject> peerTargetList = null;
@@ -531,7 +531,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Ser
         private void StartTaskSyncSovereignUpdate()
         {
 
-            TaskManager.TaskManager.InsertTask(new Action(async () =>
+            TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
             {
                 Dictionary<int, ClassPeerTargetObject> peerTargetList = null;
 
@@ -565,7 +565,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Ser
         private void StartTaskSyncBlockAndTx()
         {
 
-            TaskManager.TaskManager.InsertTask(new Action(async () =>
+            TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
             {
                 Dictionary<int, ClassPeerTargetObject> peerTargetList = null;
 
@@ -716,7 +716,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Ser
         private void StartTaskSyncCheckBlockAndTx()
         {
 
-            TaskManager.TaskManager.InsertTask(new Action(async () =>
+            TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
             {
 
                 while (_peerSyncStatus)
@@ -1005,7 +1005,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Ser
         private void StartTaskSyncNetworkInformations()
         {
 
-            TaskManager.TaskManager.InsertTask(new Action(async () =>
+            TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
             {
                 Dictionary<int, ClassPeerTargetObject> peerTargetList = null;
 
@@ -1082,7 +1082,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Ser
 
                 var i1 = i;
 
-                await TaskManager.TaskManager.InsertTask(new Action(async () =>
+                await TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                 {
                     try
                     {
@@ -1135,7 +1135,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Ser
                 foreach (int i in peerListTarget.Keys)
                 {
 
-                    await TaskManager.TaskManager.InsertTask(new Action(async () =>
+                    await TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                     {
                         try
                         {
@@ -1178,7 +1178,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Ser
 
                     foreach (int i in peerListTarget.Keys)
                     {
-                        await TaskManager.TaskManager.InsertTask(new Action(async () =>
+                        await TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                         {
 
                             foreach (var sovereignUpdateHash in hashSetSovereignUpdateHash.GetList)
@@ -1242,7 +1242,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Ser
                             foreach (int i in peerListTarget.Keys)
                             {
                                 var i1 = i;
-                                await TaskManager.TaskManager.InsertTask(new Action(async () =>
+                                await TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                                 {
                                     try
                                     {
@@ -1443,7 +1443,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Ser
                 int i1 = i;
 
 
-                await TaskManager.TaskManager.InsertTask(new Action(async () =>
+                await TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                 {
 
                     if (blockHeightEnd - blockHeightStart == 0)
@@ -1676,7 +1676,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Ser
 
                                 var i1 = i;
 
-                                await TaskManager.TaskManager.InsertTask(new Action(async () =>
+                                await TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                                 {
 
 
@@ -1851,7 +1851,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Ser
 
                             foreach (int i in peerListTarget.Keys)
                             {
-                                await TaskManager.TaskManager.InsertTask(new Action(async () =>
+                                await TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                                 {
 
                                     try
@@ -2026,7 +2026,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Ser
 
                         foreach (int i in peerListTarget.Keys)
                         {
-                            await TaskManager.TaskManager.InsertTask(new Action(async () =>
+                            await TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                             {
                                 var i1 = i;
 

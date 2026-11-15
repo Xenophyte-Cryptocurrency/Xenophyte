@@ -1,4 +1,4 @@
-﻿using SeguraChain_Lib.Blockchain.Block.Enum;
+using SeguraChain_Lib.Blockchain.Block.Enum;
 using SeguraChain_Lib.Blockchain.Database;
 using SeguraChain_Lib.Blockchain.Mining.Function;
 using SeguraChain_Lib.Blockchain.Mining.Object;
@@ -254,13 +254,13 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Broadcast
         /// <param name="peerFirewallSettingObject"></param>
         public static void BroadcastMiningShareAsync(ClassPeerDatabase peerDatabase, string peerServerIp, string peerOpenNatServerIp, string peerToExcept, ClassMiningPoWaCShareObject miningPowShareObject, ClassPeerNetworkSettingObject peerNetworkSetting, ClassPeerFirewallSettingObject peerFirewallSettingObject)
         {
-            TaskManager.TaskManager.InsertTask(new Action(async () =>
+            TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
             {
 
                 foreach (var peerValuePair in GetRandomListPeerTargetAlive(peerDatabase, peerServerIp, peerOpenNatServerIp, peerToExcept, null, peerNetworkSetting, peerFirewallSettingObject, new CancellationTokenSource()))
                 {
 
-                    await TaskManager.TaskManager.InsertTask(new Action(async () =>
+                    await TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                     {
                         try
                         {
@@ -377,7 +377,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Broadcast
                                     try
                                     {
 
-                                        await TaskManager.TaskManager.InsertTask(new Action(async () =>
+                                        await TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                                         {
                                             bool invalidPacket = false;
                                             string peerIpTarget = peerListTarget[peerKey].PeerIpTarget;
@@ -804,7 +804,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Broadcast
                         foreach (var peerKey in peerListTarget.Keys)
                         {
 
-                            await TaskManager.TaskManager.InsertTask(new Action(async () =>
+                            await TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                             {
                                 bool invalidPacket = false;
 

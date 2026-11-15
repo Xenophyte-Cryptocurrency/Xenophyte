@@ -1,4 +1,4 @@
-﻿using SeguraChain_Lib.Blockchain.Database;
+using SeguraChain_Lib.Blockchain.Database;
 using SeguraChain_Lib.Blockchain.Database.Memory.Main.Object;
 using SeguraChain_Lib.Blockchain.Setting;
 using SeguraChain_Lib.Blockchain.Stats.Function;
@@ -195,7 +195,7 @@ namespace SeguraChain_Lib.Instance.Node.Tasks
         private void StartTaskManageApiFirewall()
         {
 
-            TaskManager.TaskManager.InsertTask(new Action(async () =>
+            TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
             {
                 while (_nodeInstance.PeerToolStatus)
                 {
@@ -225,7 +225,7 @@ namespace SeguraChain_Lib.Instance.Node.Tasks
         private void StartTaskCleanUpClosedPeerClientConnection()
         {
 
-            TaskManager.TaskManager.InsertTask(new Action(async () =>
+            TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
             {
                 while (_nodeInstance.PeerToolStatus)
                 {
@@ -257,7 +257,7 @@ namespace SeguraChain_Lib.Instance.Node.Tasks
         private void StartTaskUpdateBlockchainNetworkStats()
         {
 
-            TaskManager.TaskManager.InsertTask(new Action(async () =>
+            TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
             {
                 while (_nodeInstance.PeerToolStatus)
                 {
@@ -283,7 +283,7 @@ namespace SeguraChain_Lib.Instance.Node.Tasks
         private void StartTaskConfirmBlockTransaction()
         {
 
-            TaskManager.TaskManager.InsertTask(new Action(async () =>
+            TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
             {
                 Thread.CurrentThread.Priority = ThreadPriority.Lowest;
 
@@ -386,7 +386,7 @@ namespace SeguraChain_Lib.Instance.Node.Tasks
         /// </summary>
         private void StartTaskUpdateNodeInternalStats()
         {
-            TaskManager.TaskManager.InsertTask(new Action(async () =>
+            TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
             {
                 while (_nodeInstance.PeerToolStatus)
                 {
@@ -421,7 +421,7 @@ namespace SeguraChain_Lib.Instance.Node.Tasks
         /// </summary>
         private void StartTaskUpdatePeerSyncTask()
         {
-            TaskManager.TaskManager.InsertTask(new Action(async () =>
+            TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
             {
                 while (_nodeInstance.PeerToolStatus)
                 {
@@ -456,7 +456,7 @@ namespace SeguraChain_Lib.Instance.Node.Tasks
         private void StartTaskUpdateGarbageCollection()
         {
 
-            TaskManager.TaskManager.InsertTask(new Action(async () =>
+            TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
             {
                 while (_nodeInstance.PeerToolStatus)
                 {

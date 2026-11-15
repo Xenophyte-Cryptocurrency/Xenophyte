@@ -1,4 +1,4 @@
-﻿
+
 using SeguraChain_Lib.Instance.Node.Network.Enum.P2P.Packet;
 using SeguraChain_Lib.TaskManager;
 using SeguraChain_Lib.Utility;
@@ -106,80 +106,68 @@ namespace SeguraChain_Lib.Other.Object.Network
             int delay,
             CancellationTokenSource cancellation)
         {
-            bool success = false;
+            if (string.IsNullOrWhiteSpace(ip) ||
+                port <= 0 ||
+                port > 65535 ||
+                cancellation == null ||
+                cancellation.IsCancellationRequested ||
+                _socket == null)
+                return false;
 
-            var tcsDone = new TaskCompletionSource<bool>(
-                TaskCreationOptions.RunContinuationsAsynchronously);
-
-            await TaskManager.TaskManager.InsertTask(async () =>
+            try
             {
-                try
+                TryConfigureTcpSocket(_socket);
+
+                using (CancellationTokenSource timeout =
+                    delay > 0
+                        ? new CancellationTokenSource(
+                            delay > int.MaxValue / 1000
+                                ? int.MaxValue
+                                : delay * 1000)
+                        : new CancellationTokenSource())
+                using (CancellationTokenSource linked =
+                    CancellationTokenSource.CreateLinkedTokenSource(
+                        cancellation.Token,
+                        timeout.Token))
                 {
-                    if (cancellation == null ||
-                        cancellation.IsCancellationRequested ||
-                        _socket == null)
-                    {
-                        tcsDone.TrySetResult(false);
-                        return;
-                    }
+                    Task connectTask = _socket.ConnectAsync(ip, port);
+                    Task cancellationTask = Task.Delay(
+                        Timeout.Infinite,
+                        linked.Token);
 
-                    TryConfigureTcpSocket(_socket);
-
-                    var connectTask = _socket.ConnectAsync(ip, port);
-
-                    var cancelTask =
-                        WaitCancellationAsync(cancellation.Token);
-
-                    var completed = await Task.WhenAny(
+                    Task completed = await Task.WhenAny(
                         connectTask,
-                        cancelTask).ConfigureAwait(false);
+                        cancellationTask).ConfigureAwait(false);
 
-                    if (completed == cancelTask ||
-                        cancellation.IsCancellationRequested)
+                    if (completed != connectTask)
                     {
                         SafeKillSocket();
-                        tcsDone.TrySetResult(false);
-                        return;
+                        return false;
                     }
 
                     await connectTask.ConfigureAwait(false);
 
-                    success = _socket != null && _socket.Connected;
-
-                    if (success)
+                    if (linked.IsCancellationRequested ||
+                        _socket == null ||
+                        !_socket.Connected)
                     {
-                        _networkStream =
-                            new NetworkStream(_socket, true);
+                        SafeKillSocket();
+                        return false;
                     }
 
-                    tcsDone.TrySetResult(success);
+                    _networkStream = new NetworkStream(_socket, true);
+                    return true;
                 }
-                catch (Exception error)
-                {
-                    Debug.WriteLine(
-                        "Socket connection error: " + error.Message);
+            }
+            catch (Exception error)
+            {
+                Debug.WriteLine(
+                    "Socket connection error to " + ip + ":" +
+                    port + " | " + error.Message);
 
-                    SafeKillSocket();
-                    tcsDone.TrySetResult(false);
-                }
-
-            }, System.Math.Max(0, delay) * 1000, cancellation);
-
-            return await tcsDone.Task.ConfigureAwait(false);
-        }
-
-        private static Task WaitCancellationAsync(
-            CancellationToken token)
-        {
-            if (!token.CanBeCanceled)
-                return Task.Delay(Timeout.Infinite);
-
-            var tcs = new TaskCompletionSource<bool>(
-                TaskCreationOptions.RunContinuationsAsynchronously);
-
-            token.Register(() => tcs.TrySetResult(true));
-
-            return tcs.Task;
+                SafeKillSocket();
+                return false;
+            }
         }
 
         // ============================================================

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 #if DEBUG
 using System.Diagnostics;
@@ -103,7 +103,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Ser
             NetworkPeerServerStatus = true;
             _cancellationTokenSourcePeerServer = new CancellationTokenSource();
 
-            TaskManager.TaskManager.InsertTask(new Action(async () =>
+            TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
             {
                 while (NetworkPeerServerStatus)
                 {
@@ -113,7 +113,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Ser
 
                         string clientIp = clientPeerTcp.GetIp;
 
-                        await TaskManager.TaskManager.InsertTask(new Action(async () =>
+                        await TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                         {
                             ClassLog.WriteLine("Handle incoming connection from: " + clientIp, ClassEnumLogLevelType.LOG_LEVEL_PEER_SERVER, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Green);
 

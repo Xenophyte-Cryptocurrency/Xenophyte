@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -116,10 +116,10 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.API.Client
         /// </summary>
         public async Task<bool> HandleApiClientConnection()
         {
-            await TaskManager.TaskManager.InsertTask(new Action(async () => await CheckApiClientConnection()),
+            await TaskManager.TaskManager.InsertTask(new Func<Task>(async () => await CheckApiClientConnection()),
                 0, _cancellationTokenApiClientCheck, _clientSocket);
 
-            await TaskManager.TaskManager.InsertTask(new Action(async () =>
+            await TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
             {
                 try
                 {

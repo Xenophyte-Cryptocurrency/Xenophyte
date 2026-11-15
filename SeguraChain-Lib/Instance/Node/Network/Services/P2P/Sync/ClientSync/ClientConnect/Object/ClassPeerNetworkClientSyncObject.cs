@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -54,6 +54,9 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Cli
         private bool _peerTaskKeepAliveStatus;
         private CancellationTokenSource _peerCancellationTokenMain;
         private CancellationTokenSource _peerCancellationTokenKeepAlive;
+        // The legacy packet protocol is a byte stream: concurrent writes can
+        // interleave packet fragments and corrupt framing.
+        private readonly SemaphoreSlim _peerSendLock = new SemaphoreSlim(1, 1);
 
         /// <summary>
         /// Peer Database.
@@ -444,9 +447,11 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Cli
             {
                 _peerTaskKeepAliveStatus = true;
 
-                _peerCancellationTokenKeepAlive = new CancellationTokenSource();
+                _peerCancellationTokenKeepAlive =
+                    CancellationTokenSource.CreateLinkedTokenSource(
+                        _peerCancellationTokenMain.Token);
 
-                TaskManager.TaskManager.InsertTask(new Action(async () =>
+                TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                 {
 
                     var sendObject = new ClassPeerPacketSendObject(_peerNetworkSetting.PeerUniqueId, peerObject.PeerInternPublicKey, peerObject.PeerClientLastTimestampPeerPacketSignatureWhitelist)
@@ -459,7 +464,9 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Cli
                     };
 
 
-                    while (PeerConnectStatus && _peerTaskKeepAliveStatus)
+                    while (PeerConnectStatus &&
+                           _peerTaskKeepAliveStatus &&
+                           !_peerCancellationTokenKeepAlive.IsCancellationRequested)
                     {
                         try
                         {
@@ -475,7 +482,9 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Cli
                                 break;
                             }
 
-                            await Task.Delay(5 * 1000);
+                            await Task.Delay(
+                                5 * 1000,
+                                _peerCancellationTokenKeepAlive.Token);
                         }
                         catch (Exception e)
                         {
@@ -506,8 +515,47 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Cli
         /// <returns></returns>
         private async Task<bool> SendPeerPacket(byte[] packet, CancellationTokenSource cancellation)
         {
-            string packetData = Convert.ToBase64String(packet) + ClassPeerPacketSetting.PacketPeerSplitSeperator.ToString();
-            return await _peerSocketClient.TrySendSplittedPacket(packetData.GetByteArray(), cancellation, _peerNetworkSetting.PeerMaxPacketSplitedSendSize, false);
+            if (packet == null ||
+                packet.Length == 0 ||
+                cancellation == null ||
+                cancellation.IsCancellationRequested ||
+                _peerSocketClient == null)
+                return false;
+
+            bool lockTaken = false;
+
+            try
+            {
+                await _peerSendLock.WaitAsync().ConfigureAwait(false);
+                lockTaken = true;
+
+                if (cancellation.IsCancellationRequested ||
+                    !_peerSocketClient.IsConnected())
+                    return false;
+
+                string packetData =
+                    Convert.ToBase64String(packet) +
+                    ClassPeerPacketSetting.PacketPeerSplitSeperator.ToString();
+
+                return await _peerSocketClient.TrySendSplittedPacket(
+                    packetData.GetByteArray(),
+                    cancellation,
+                    _peerNetworkSetting.PeerMaxPacketSplitedSendSize,
+                    false).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                return false;
+            }
+            catch (ObjectDisposedException)
+            {
+                return false;
+            }
+            finally
+            {
+                if (lockTaken)
+                    _peerSendLock.Release();
+            }
         }
 
         private void CancelHandlePacket()

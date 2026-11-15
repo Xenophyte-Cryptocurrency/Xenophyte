@@ -1,4 +1,4 @@
-﻿using SeguraChain_Lib.Instance.Node.Network.Database;
+using SeguraChain_Lib.Instance.Node.Network.Database;
 using SeguraChain_Lib.Instance.Node.Network.Services.API.Client;
 using SeguraChain_Lib.Instance.Node.Setting.Object;
 using SeguraChain_Lib.Log;
@@ -8,6 +8,7 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace SeguraChain_Lib.Instance.Node.Network.Services.API.Server.Service
 {
@@ -98,7 +99,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.API.Server.Service
             _cancellationTokenSourcePeerApiServer = new CancellationTokenSource();
 
 
-            TaskManager.TaskManager.InsertTask(new Action(async () =>
+            TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
             {
 
                 while (NetworkPeerApiServerStatus)
@@ -110,7 +111,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.API.Server.Service
                         {
                             ClassCustomSocket clientApiTcp = new ClassCustomSocket(await clientTask, true);
 
-                            await TaskManager.TaskManager.InsertTask(new Action(async () =>
+                            await TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                             {
                                 string clientIp = clientApiTcp.GetIp;
 

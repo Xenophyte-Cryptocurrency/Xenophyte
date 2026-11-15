@@ -1,4 +1,4 @@
-﻿using SeguraChain_Lib.Instance.Node.Setting.Object;
+using SeguraChain_Lib.Instance.Node.Setting.Object;
 using SeguraChain_Lib.Log;
 using SeguraChain_Lib.Other.Object.List;
 using SeguraChain_Lib.Other.Object.Network;
@@ -139,10 +139,19 @@ namespace SeguraChain_Lib.TaskManager
                         continue;
 
                     task.Disposed = true;
-                    task.Socket?.Kill(SocketShutdown.Both);
 
-                    //try { task.Cancellation?.Cancel(); } catch { }
+                    // Stop the work before disposing its task/token source.
+                    try
+                    {
+                        if (task.Cancellation != null &&
+                            !task.Cancellation.IsCancellationRequested)
+                            task.Cancellation.Cancel();
+                    }
+                    catch { }
+
+                    task.Socket?.Kill(SocketShutdown.Both);
                     try { task.Task?.Dispose(); } catch { }
+                    try { task.Cancellation?.Dispose(); } catch { }
 
                     _completedTaskIds.Add(task.Id);
                 }
@@ -176,32 +185,73 @@ namespace SeguraChain_Lib.TaskManager
 
         #region INSERT TASK
 
-        public static async Task InsertTask(
+        public static Task InsertTask(
             Action action,
             long timestampEnd,
             CancellationTokenSource cancellation,
             ClassCustomSocket socket = null,
             bool useFactory = false)
         {
+            if (action == null)
+                throw new ArgumentNullException(nameof(action));
+
+            return InsertTask(
+                () =>
+                {
+                    action();
+                    return Task.CompletedTask;
+                },
+                timestampEnd,
+                cancellation,
+                socket,
+                useFactory);
+        }
+
+        /// <summary>
+        /// Schedules asynchronous work and tracks its real completion.
+        /// Async delegates must be stored as Task-returning delegates;
+        /// treating them as Action creates async-void tasks that appear
+        /// completed before their network operations finish.
+        /// </summary>
+        public static async Task InsertTask(
+            Func<Task> action,
+            long timestampEnd,
+            CancellationTokenSource cancellation,
+            ClassCustomSocket socket = null,
+            bool useFactory = false)
+        {
+            if (action == null)
+                throw new ArgumentNullException(nameof(action));
+
             if (!_enabled)
                 return;
 
-            long remaining = timestampEnd > 0
-                ? Math.Max(0, timestampEnd - CurrentTimestampMillisecond)
-                : 0;
-
-            CancellationTokenSource localCts;
+            CancellationTokenSource localCts = null;
 
             try
             {
-                localCts = cancellation != null && remaining > 0
+                localCts = cancellation != null
                     ? CancellationTokenSource.CreateLinkedTokenSource(
                         cancellation.Token,
-                        new CancellationTokenSource((int)remaining).Token)
-                    : new CancellationTokenSource();
+                        _globalCts.Token)
+                    : CancellationTokenSource.CreateLinkedTokenSource(
+                        _globalCts.Token);
+
+                if (timestampEnd > 0)
+                {
+                    long remaining = Math.Max(
+                        0,
+                        timestampEnd - CurrentTimestampMillisecond);
+
+                    localCts.CancelAfter(
+                        remaining > int.MaxValue
+                            ? int.MaxValue
+                            : (int)remaining);
+                }
             }
             catch
             {
+                localCts?.Dispose();
                 return;
             }
 
@@ -213,16 +263,27 @@ namespace SeguraChain_Lib.TaskManager
                         action,
                         localCts.Token,
                         TaskCreationOptions.LongRunning,
-                        TaskScheduler.Default).ConfigureAwait(false);
+                        TaskScheduler.Default).Unwrap().ConfigureAwait(false);
                 }
+                catch (OperationCanceledException) { }
                 catch { }
+                finally
+                {
+                    localCts.Dispose();
+                }
                 return;
             }
 
             lock (_tasks)
             {
-                var taskObj = new ClassTaskObject(action, localCts, timestampEnd, socket);
+                var taskObj = new ClassTaskObject(
+                    action,
+                    localCts,
+                    timestampEnd,
+                    socket);
+
                 _tasks.Add(taskObj);
+
                 if (!taskObj.Started)
                     taskObj.Run();
             }

@@ -64,7 +64,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Broadcast
             _cancellation = new CancellationTokenSource();
             _peerNetworkBroadcastInstanceMemPoolStatus = true;
 
-            TaskManager.TaskManager.InsertTask(new Action(async () =>
+            TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
             {
                 while (_peerNetworkBroadcastInstanceMemPoolStatus && !_cancellation.IsCancellationRequested)
                 {
@@ -457,7 +457,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Broadcast
             /// </summary>
             private void EnableReceiveBroadcastTransactionTask()
             {
-                TaskManager.TaskManager.InsertTask(new Action(async () =>
+                TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                 {
                     using (DisposableDictionary<string, string> listWalletAddressAndPublicKeyCache = new DisposableDictionary<string, string>())
                     {
@@ -698,7 +698,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Broadcast
             /// </summary>
             private void EnableSendBroadcastTransactionTask()
             {
-                TaskManager.TaskManager.InsertTask(new Action(async () =>
+                TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                 {
                     while (IsAlive && !_peerCancellationToken.IsCancellationRequested)
                     {

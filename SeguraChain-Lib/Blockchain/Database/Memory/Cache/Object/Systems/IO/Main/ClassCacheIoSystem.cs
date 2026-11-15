@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -412,7 +412,7 @@ namespace SeguraChain_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Mai
                         {
                             if (_blockchainDatabaseSetting.BlockchainCacheSetting.IoCacheDiskEnableMultiTask && ioFileNameArray.Length > 1)
                             {
-                                await TaskManager.TaskManager.InsertTask(new Action(async () =>
+                                await TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                                 {
                                     try
                                     {
@@ -584,7 +584,7 @@ namespace SeguraChain_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Mai
                         {
                             if (_blockchainDatabaseSetting.BlockchainCacheSetting.IoCacheDiskEnableMultiTask && ioFileNameArray.Length > 1)
                             {
-                                await TaskManager.TaskManager.InsertTask(new Action(async () =>
+                                await TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                                 {
                                     if (!cancel)
                                     {
@@ -793,7 +793,7 @@ namespace SeguraChain_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Mai
 
                                 foreach (string ioFileName in ioFileNameArray)
                                 {
-                                    await TaskManager.TaskManager.InsertTask(new Action(async () =>
+                                    await TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                                     {
                                         try
                                         {

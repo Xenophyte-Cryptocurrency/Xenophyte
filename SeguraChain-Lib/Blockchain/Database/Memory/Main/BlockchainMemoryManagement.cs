@@ -1,4 +1,4 @@
-﻿using SeguraChain_Lib.Blockchain.Block.Enum;
+using SeguraChain_Lib.Blockchain.Block.Enum;
 using SeguraChain_Lib.Blockchain.Block.Function;
 using SeguraChain_Lib.Blockchain.Block.Object.Structure;
 using SeguraChain_Lib.Blockchain.Checkpoint.Enum;
@@ -3253,7 +3253,7 @@ namespace SeguraChain_Lib.Blockchain.Database.Memory.Main
         /// </summary>
         public void StartTaskManageActiveMemory()
         {
-            TaskManager.TaskManager.InsertTask(new Action(async () =>
+            TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
             {
                 bool useSemaphoreMemory = false;
                 bool useSemaphoreUpdateTransactionConfirmation = false;

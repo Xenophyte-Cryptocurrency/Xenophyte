@@ -1,4 +1,4 @@
-﻿using SeguraChain_Lib.Other.Object.Network;
+using SeguraChain_Lib.Other.Object.Network;
 using SeguraChain_Lib.Utility;
 using System;
 using System.Threading;
@@ -11,7 +11,7 @@ namespace SeguraChain_Lib.TaskManager.Object
         public long Id;
         public bool Started;
         public bool Disposed;
-        private Action _action;
+        private Func<Task> _action;
         public Task Task;
         public CancellationTokenSource Cancellation;
         public long TimestampEnd;
@@ -20,7 +20,7 @@ namespace SeguraChain_Lib.TaskManager.Object
         /// <summary>
         /// Constructor.
         /// </summary>
-        public ClassTaskObject(Action action, CancellationTokenSource cancellation, long timestampEnd, ClassCustomSocket socket)
+        public ClassTaskObject(Func<Task> action, CancellationTokenSource cancellation, long timestampEnd, ClassCustomSocket socket)
         {
             Id = ClassUtility.GetRandomBetweenLong(0, long.MaxValue - 1);
             Cancellation = cancellation;
@@ -36,7 +36,7 @@ namespace SeguraChain_Lib.TaskManager.Object
         {
             try
             {
-                Task = Task.Factory.StartNew(_action, Cancellation.Token, TaskCreationOptions.DenyChildAttach, TaskScheduler.Current);
+                Task = Task.Factory.StartNew(_action, Cancellation.Token, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default).Unwrap();
             }
             catch
             {
