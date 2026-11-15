@@ -57,6 +57,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Cli
         // The legacy packet protocol is a byte stream: concurrent writes can
         // interleave packet fragments and corrupt framing.
         private readonly SemaphoreSlim _peerSendLock = new SemaphoreSlim(1, 1);
+        private int _binaryPacketId;
 
         /// <summary>
         /// Peer Database.
@@ -73,7 +74,6 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Cli
         /// Specifications of the connection opened.
         /// </summary>
         public ClassPeerEnumPacketResponse PacketResponseExpected;
-        private DisposableList<ClassReadPacketSplitted> listPacketReceived;
         private bool _keepAlive;
 
 
@@ -301,132 +301,59 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Cli
         /// </summary>
         private async Task TaskWaitPeerPacketResponse()
         {
-
-            listPacketReceived?.Clear();
-
-            using (listPacketReceived = new DisposableList<ClassReadPacketSplitted>(false, 0, new List<ClassReadPacketSplitted>()
-                {
-                    new ClassReadPacketSplitted()
-                }))
+            while (PeerConnectStatus && !_peerCancellationTokenMain.IsCancellationRequested)
             {
-                while (PeerConnectStatus)
+                BinaryPacket binaryPacket = await _peerSocketClient.ReceiveBinaryPacketAsync(
+                    _peerNetworkSetting.PeerApiMaxConnectionDelay * 1000,
+                    _peerCancellationTokenMain.Token).ConfigureAwait(false);
+
+                if (binaryPacket == null || binaryPacket.Payload == null || binaryPacket.Payload.Length == 0)
+                    break;
+
+                ClassPeerCheckManager.UpdatePeerClientLastPacketReceived(
+                    _peerDatabase, PeerIpTarget, PeerUniqueIdTarget,
+                    TaskManager.TaskManager.CurrentTimestampSecond, _peerCancellationTokenMain);
+
+                ClassPeerPacketRecvObject peerPacketReceived =
+                    new ClassPeerPacketRecvObject(binaryPacket.Payload, out bool status);
+
+                if (!status || peerPacketReceived == null)
                 {
-                    using (ReadPacketData readPacketData = await _peerSocketClient.TryReadPacketData(_peerNetworkSetting.PeerMaxPacketBufferSize, _peerNetworkSetting.PeerApiMaxConnectionDelay * 1000, false, _peerCancellationTokenMain))
-                    {
-
-                        ClassPeerCheckManager.UpdatePeerClientLastPacketReceived(_peerDatabase, PeerIpTarget, PeerUniqueIdTarget, TaskManager.TaskManager.CurrentTimestampSecond, _peerCancellationTokenMain);
-
-                        if (!readPacketData.Status)
-                            break;
-
-
-                        #region Compile the packet.
-
-                        try
-                        {
-                            listPacketReceived = ClassUtility.GetEachPacketSplitted(readPacketData.Data, listPacketReceived, _peerCancellationTokenMain);
-                        }
-                        catch
-                        {
 #if DEBUG
-                            Debug.WriteLine("Failed to compile packet data received from peer " + PeerIpTarget);
+                    Debug.WriteLine("Can't build binary packet data from: " + _peerSocketClient.GetIp);
 #endif
-                            break;
-                        }
-
-                        if (listPacketReceived.GetList.Sum(x => x.Packet.Length) >= ClassPeerPacketSetting.PacketMaxLengthReceive)
-                        {
-#if DEBUG
-                            Debug.WriteLine("Too huge packet data length from peer " + PeerIpTarget +" | "+ listPacketReceived.GetList.Sum(x => x.Packet.Length)+"/"+ ClassPeerPacketSetting.PacketMaxLengthReceive);
-#endif
-                            break;
-                        }
-
-                        #endregion
-
-                        int countCompleted = listPacketReceived.GetList.Count(x => x.Complete);
-
-                        if (countCompleted == 0)
-                            continue;
-
-                        if (listPacketReceived[listPacketReceived.Count - 1].Used ||
-                        !listPacketReceived[listPacketReceived.Count - 1].Complete ||
-                         listPacketReceived[listPacketReceived.Count - 1].Packet == null ||
-                         listPacketReceived[listPacketReceived.Count - 1].Packet.Length == 0)
-                            continue;
-
-                        byte[] base64Packet = null;
-                        bool failed = false;
-
-                        listPacketReceived[listPacketReceived.Count - 1].Used = true;
-
-                        try
-                        {
-                            base64Packet = Convert.FromBase64String(listPacketReceived[listPacketReceived.Count - 1].Packet);
-                        }
-                        catch
-                        {
-                            failed = true;
-                        }
-
-                        listPacketReceived[listPacketReceived.Count - 1].Packet.Clear();
-
-                        if (failed)
-                            break;
-
-
-                        ClassPeerPacketRecvObject peerPacketReceived = new ClassPeerPacketRecvObject(base64Packet, out bool status);
-
-                        if (!status)
-                        {
-#if DEBUG
-                            Debug.WriteLine("Can't build packet data from: " + _peerSocketClient.GetIp);
-#endif
-                            break;
-                        };
-
-                        if (peerPacketReceived == null)
-                            break;
-
-                        PeerPacketTypeReceived = peerPacketReceived.PacketOrder;
-
-                        if (peerPacketReceived.PacketOrder == PacketResponseExpected)
-                        {
-                            PeerPacketReceivedStatus = true;
-
-                            
-                            if (_peerDatabase.ContainsPeerUniqueId(PeerIpTarget, PeerUniqueIdTarget, _peerCancellationTokenMain))
-                                _peerDatabase[PeerIpTarget, PeerUniqueIdTarget, _peerCancellationTokenMain].PeerTimestampSignatureWhitelist = peerPacketReceived.PeerLastTimestampSignatureWhitelist;
-                            
-                            PeerPacketReceived = peerPacketReceived;
-                        }
-
-                        else
-                        {
-
-
-                            if (peerPacketReceived.PacketOrder != ClassPeerEnumPacketResponse.NOT_YET_SYNCED &&
-                                peerPacketReceived.PacketOrder == ClassPeerEnumPacketResponse.SEND_MISSING_AUTH_KEYS)
-                                PeerPacketReceivedStatus = peerPacketReceived.PacketOrder == ClassPeerEnumPacketResponse.SEND_MISSING_AUTH_KEYS;
-                            else
-                            {
-                                if (peerPacketReceived.PacketOrder != ClassPeerEnumPacketResponse.NOT_YET_SYNCED &&
-                                    PacketResponseExpected == ClassPeerEnumPacketResponse.SEND_BLOCK_DATA)
-                                {
-#if DEBUG
-                                    Debug.WriteLine("Invalid packet data received: " + JsonConvert.SerializeObject(peerPacketReceived));
-#endif
-                                    ClassPeerCheckManager.InputPeerClientInvalidPacket(_peerDatabase, PeerIpTarget, PeerUniqueIdTarget, _peerNetworkSetting, _peerFirewallSettingObject, _peerCancellationTokenMain);
-                                }
-                            }
-                        }
-                        break;
-                    }
+                    break;
                 }
+
+                PeerPacketTypeReceived = peerPacketReceived.PacketOrder;
+
+                if (peerPacketReceived.PacketOrder == PacketResponseExpected)
+                {
+                    PeerPacketReceivedStatus = true;
+                    if (_peerDatabase.ContainsPeerUniqueId(PeerIpTarget, PeerUniqueIdTarget, _peerCancellationTokenMain))
+                        _peerDatabase[PeerIpTarget, PeerUniqueIdTarget, _peerCancellationTokenMain].PeerTimestampSignatureWhitelist = peerPacketReceived.PeerLastTimestampSignatureWhitelist;
+                    PeerPacketReceived = peerPacketReceived;
+                }
+                else if (peerPacketReceived.PacketOrder != ClassPeerEnumPacketResponse.NOT_YET_SYNCED &&
+                         peerPacketReceived.PacketOrder == ClassPeerEnumPacketResponse.SEND_MISSING_AUTH_KEYS)
+                {
+                    PeerPacketReceivedStatus = true;
+                }
+                else if (peerPacketReceived.PacketOrder != ClassPeerEnumPacketResponse.NOT_YET_SYNCED &&
+                         PacketResponseExpected == ClassPeerEnumPacketResponse.SEND_BLOCK_DATA)
+                {
+#if DEBUG
+                    Debug.WriteLine("Invalid packet data received: " + JsonConvert.SerializeObject(peerPacketReceived));
+#endif
+                    ClassPeerCheckManager.InputPeerClientInvalidPacket(
+                        _peerDatabase, PeerIpTarget, PeerUniqueIdTarget,
+                        _peerNetworkSetting, _peerFirewallSettingObject, _peerCancellationTokenMain);
+                }
+
+                break;
             }
 
             PeerTaskStatus = false;
-
         }
 
         #endregion
@@ -533,15 +460,9 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Cli
                     !_peerSocketClient.IsConnected())
                     return false;
 
-                string packetData =
-                    Convert.ToBase64String(packet) +
-                    ClassPeerPacketSetting.PacketPeerSplitSeperator.ToString();
-
-                return await _peerSocketClient.TrySendSplittedPacket(
-                    packetData.GetByteArray(),
-                    cancellation,
-                    _peerNetworkSetting.PeerMaxPacketSplitedSendSize,
-                    false).ConfigureAwait(false);
+                return await _peerSocketClient.SendBinaryPacketAsync(
+                    0, 0, unchecked((uint)Interlocked.Increment(ref _binaryPacketId)),
+                    packet, cancellation.Token).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -594,7 +515,6 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Cli
         /// </summary>
         public void DisconnectFromTarget()
         {
-            listPacketReceived?.Clear();
             _peerSocketClient?.Kill(SocketShutdown.Both);
         }
 
