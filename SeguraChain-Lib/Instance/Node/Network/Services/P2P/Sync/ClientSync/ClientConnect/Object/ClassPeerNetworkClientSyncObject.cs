@@ -460,7 +460,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Cli
                     !_peerSocketClient.IsConnected())
                     return false;
 
-                return await _peerSocketClient.SendBinaryPacketAsync(
+                return await _peerSocketClient.TrySendSplittedPacket(
                     0, 0, unchecked((uint)Interlocked.Increment(ref _binaryPacketId)),
                     packet, cancellation.Token).ConfigureAwait(false);
             }

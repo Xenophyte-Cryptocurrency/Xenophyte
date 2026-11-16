@@ -1,4 +1,4 @@
-﻿
+
 using SeguraChain_Lib.Instance.Node.Network.Enum.P2P.Packet;
 using SeguraChain_Lib.TaskManager;
 using SeguraChain_Lib.Utility;
@@ -49,7 +49,15 @@ namespace SeguraChain_Lib.Other.Object.Network
         private const uint BinaryPacketMagic = 0x4F4E4558;
         private const byte BinaryProtocolVersion = 1;
         private const int BinaryHeaderSize = 16;
-        private const int BinaryMaximumPayloadSize = 100 * 1024 * 1024;
+        // A TCP frame is deliberately small. Large logical packets are split
+        // into sequential frames and reassembled by ReceiveBinaryPacketAsync.
+        public const int BinaryFragmentDataSize = 64 * 1024;
+        // Configurable logical packet limit. Keep this bounded to prevent a
+        // peer from forcing unbounded allocations during reassembly.
+        public static int MaximumLogicalPayloadSize { get; set; } = 64 * 1024 * 1024;
+        private const int BinaryFragmentMetadataSize = 16;
+        private const int BinaryMaximumFramePayloadSize = BinaryFragmentDataSize + BinaryFragmentMetadataSize;
+        private const ushort BinaryFragmentFlag = 0x8000;
 
         /// <summary>
         /// Represents a decoded XENO binary packet.
@@ -268,7 +276,7 @@ namespace SeguraChain_Lib.Other.Object.Network
             CancellationToken cancellationToken)
         {
             if (payload == null ||
-                payload.Length > BinaryMaximumPayloadSize ||
+                payload.Length > BinaryMaximumFramePayloadSize ||
                 Closed ||
                 _networkStream == null ||
                 !IsConnected())
@@ -352,6 +360,81 @@ namespace SeguraChain_Lib.Other.Object.Network
             }
         }
 
+        /// <summary>
+        /// Sends one logical P2P packet as a sequence of bounded binary frames.
+        /// The send lock is held for the complete sequence so keep-alive or
+        /// another packet cannot interleave its fragments.
+        /// Fragment metadata (16 bytes): logical packet ID, index, count, total length.
+        /// </summary>
+        public async Task<bool> TrySendSplittedPacket(
+            byte command,
+            ushort flags,
+            uint packetId,
+            byte[] payload,
+            CancellationToken cancellationToken)
+        {
+            int maximumLogicalPayloadSize = MaximumLogicalPayloadSize;
+            if (payload == null || payload.Length == 0 ||
+                maximumLogicalPayloadSize <= 0 ||
+                maximumLogicalPayloadSize > 256 * 1024 * 1024 ||
+                payload.Length > maximumLogicalPayloadSize ||
+                Closed || _networkStream == null || !IsConnected())
+                return false;
+
+            int fragmentCount = (payload.Length + BinaryFragmentDataSize - 1) / BinaryFragmentDataSize;
+            if (fragmentCount < 1 || fragmentCount > 65535)
+                return false;
+
+            bool lockTaken = false;
+            bool writeStarted = false;
+            try
+            {
+                await _binarySendLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+                lockTaken = true;
+
+                for (int fragmentIndex = 0; fragmentIndex < fragmentCount; fragmentIndex++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    int sourceOffset = fragmentIndex * BinaryFragmentDataSize;
+                    int dataLength = Math.Min(BinaryFragmentDataSize, payload.Length - sourceOffset);
+                    byte[] framePayload = new byte[BinaryFragmentMetadataSize + dataLength];
+                    WriteUInt32LE(framePayload, 0, packetId);
+                    WriteUInt32LE(framePayload, 4, (uint)fragmentIndex);
+                    WriteUInt32LE(framePayload, 8, (uint)fragmentCount);
+                    WriteUInt32LE(framePayload, 12, (uint)payload.Length);
+                    Buffer.BlockCopy(payload, sourceOffset, framePayload, BinaryFragmentMetadataSize, dataLength);
+
+                    byte[] header = new byte[BinaryHeaderSize];
+                    WriteUInt32LE(header, 0, BinaryPacketMagic);
+                    header[4] = BinaryProtocolVersion;
+                    header[5] = command;
+                    WriteUInt16LE(header, 6, (ushort)(flags | BinaryFragmentFlag));
+                    WriteUInt32LE(header, 8, packetId);
+                    WriteUInt32LE(header, 12, (uint)framePayload.Length);
+
+                    writeStarted = true;
+                    await _networkStream.WriteAsync(header, 0, header.Length, cancellationToken).ConfigureAwait(false);
+                    await _networkStream.WriteAsync(framePayload, 0, framePayload.Length, cancellationToken).ConfigureAwait(false);
+                }
+                return true;
+            }
+            catch (OperationCanceledException)
+            {
+                if (writeStarted) Close(SocketShutdown.Both);
+                return false;
+            }
+            catch (Exception error)
+            {
+                Debug.WriteLine("XENO fragmented send error to " + GetIp + " | " + error.Message);
+                if (writeStarted) Close(SocketShutdown.Both);
+                return false;
+            }
+            finally
+            {
+                if (lockTaken) _binarySendLock.Release();
+            }
+        }
+
         // ============================================================
         // XENO BINARY PACKET RECEIVING
         // ============================================================
@@ -379,104 +462,128 @@ namespace SeguraChain_Lib.Other.Object.Network
 
             bool lockTaken = false;
             bool readingStarted = false;
-
-            using (CancellationTokenSource timeout =
-                timeoutMilliseconds > 0
-                    ? new CancellationTokenSource(timeoutMilliseconds)
-                    : new CancellationTokenSource())
-            using (CancellationTokenSource linked =
-                CancellationTokenSource.CreateLinkedTokenSource(
-                    cancellationToken,
-                    timeout.Token))
+            using (CancellationTokenSource timeout = timeoutMilliseconds > 0
+                ? new CancellationTokenSource(timeoutMilliseconds)
+                : new CancellationTokenSource())
+            using (CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken, timeout.Token))
             {
                 try
                 {
-                    await _binaryReceiveLock.WaitAsync(
-                        linked.Token).ConfigureAwait(false);
-
+                    await _binaryReceiveLock.WaitAsync(linked.Token).ConfigureAwait(false);
                     lockTaken = true;
+                    if (Closed || _networkStream == null) return null;
 
-                    if (Closed || _networkStream == null)
-                        return null;
+                    BinaryPacket first = await ReadBinaryFrameNoLock(linked.Token, () => readingStarted = true).ConfigureAwait(false);
+                    if (first == null) return null;
 
-                    byte[] header = new byte[BinaryHeaderSize];
+                    if ((first.Flags & BinaryFragmentFlag) == 0)
+                        return first;
 
-                    readingStarted = true;
+                    if (first.Payload == null || first.Payload.Length < BinaryFragmentMetadataSize)
+                        throw new InvalidDataException("Invalid XENO fragment metadata.");
 
-                    await ReadExactlyAsync(
-                        header,
-                        linked.Token).ConfigureAwait(false);
+                    uint logicalPacketId = ReadUInt32LE(first.Payload, 0);
+                    uint fragmentCount = ReadUInt32LE(first.Payload, 8);
+                    uint totalLength = ReadUInt32LE(first.Payload, 12);
+                    int maximumLogicalPayloadSize = MaximumLogicalPayloadSize;
+                    if (logicalPacketId != first.PacketId || fragmentCount < 1 || fragmentCount > 65535 ||
+                        maximumLogicalPayloadSize <= 0 ||
+                        maximumLogicalPayloadSize > 256 * 1024 * 1024 ||
+                        totalLength == 0 || totalLength > maximumLogicalPayloadSize ||
+                        ReadUInt32LE(first.Payload, 4) != 0)
+                        throw new InvalidDataException("Invalid XENO first fragment.");
 
-                    uint magic = ReadUInt32LE(header, 0);
+                    int expectedCount = ((int)totalLength + BinaryFragmentDataSize - 1) / BinaryFragmentDataSize;
+                    if (fragmentCount != expectedCount)
+                        throw new InvalidDataException("Inconsistent XENO fragment count.");
 
-                    if (magic != BinaryPacketMagic)
+                    byte[] assembled = new byte[(int)totalLength];
+                    int firstDataLength = first.Payload.Length - BinaryFragmentMetadataSize;
+                    int expectedFirstDataLength = Math.Min(BinaryFragmentDataSize, assembled.Length);
+                    if (firstDataLength != expectedFirstDataLength)
+                        throw new InvalidDataException("Invalid XENO first fragment length.");
+                    Buffer.BlockCopy(first.Payload, BinaryFragmentMetadataSize, assembled, 0, firstDataLength);
+                    int assembledLength = firstDataLength;
+
+                    for (uint index = 1; index < fragmentCount; index++)
                     {
-                        throw new InvalidDataException(
-                            "Invalid XENO packet magic.");
+                        BinaryPacket next = await ReadBinaryFrameNoLock(linked.Token, () => readingStarted = true).ConfigureAwait(false);
+                        if (next == null || next.Command != first.Command || next.PacketId != first.PacketId ||
+                            (next.Flags & BinaryFragmentFlag) == 0 ||
+                            (next.Flags & ~BinaryFragmentFlag) != (first.Flags & ~BinaryFragmentFlag) ||
+                            next.Payload == null || next.Payload.Length < BinaryFragmentMetadataSize ||
+                            ReadUInt32LE(next.Payload, 0) != logicalPacketId ||
+                            ReadUInt32LE(next.Payload, 4) != index ||
+                            ReadUInt32LE(next.Payload, 8) != fragmentCount ||
+                            ReadUInt32LE(next.Payload, 12) != totalLength)
+                            throw new InvalidDataException("Out-of-order or inconsistent XENO fragment.");
+
+                        int dataLength = next.Payload.Length - BinaryFragmentMetadataSize;
+                        int expectedDataLength = Math.Min(BinaryFragmentDataSize, assembled.Length - assembledLength);
+                        if (dataLength != expectedDataLength || dataLength <= 0)
+                            throw new InvalidDataException("Invalid XENO fragment payload length.");
+                        Buffer.BlockCopy(next.Payload, BinaryFragmentMetadataSize, assembled, assembledLength, dataLength);
+                        assembledLength += dataLength;
                     }
 
-                    if (header[4] != BinaryProtocolVersion)
-                    {
-                        throw new InvalidDataException(
-                            "Unsupported XENO protocol version.");
-                    }
-
-                    uint payloadLength = ReadUInt32LE(
-                        header, 12);
-
-                    if (payloadLength > BinaryMaximumPayloadSize)
-                    {
-                        throw new InvalidDataException(
-                            "XENO payload exceeds maximum allowed size.");
-                    }
-
-                    byte[] payload =
-                        new byte[(int)payloadLength];
-
-                    if (payload.Length > 0)
-                    {
-                        await ReadExactlyAsync(
-                            payload,
-                            linked.Token).ConfigureAwait(false);
-                    }
+                    if (assembledLength != assembled.Length)
+                        throw new InvalidDataException("Incomplete XENO logical packet.");
 
                     return new BinaryPacket
                     {
-                        Command = header[5],
-
-                        Flags = ReadUInt16LE(
-                            header, 6),
-
-                        PacketId = ReadUInt32LE(
-                            header, 8),
-
-                        Payload = payload
+                        Command = first.Command,
+                        Flags = (ushort)(first.Flags & ~BinaryFragmentFlag),
+                        PacketId = first.PacketId,
+                        Payload = assembled
                     };
                 }
                 catch (OperationCanceledException)
                 {
-                    if (readingStarted)
-                        Close(SocketShutdown.Both);
-
+                    if (readingStarted) Close(SocketShutdown.Both);
                     return null;
                 }
                 catch (Exception error)
                 {
-                    Debug.WriteLine(
-                        "XENO binary receive error from " +
-                        GetIp + " | " + error.Message);
-
-                    if (readingStarted)
-                        Close(SocketShutdown.Both);
-
+                    Debug.WriteLine("XENO binary receive error from " + GetIp + " | " + error.Message);
+                    if (readingStarted) Close(SocketShutdown.Both);
                     return null;
                 }
                 finally
                 {
-                    if (lockTaken)
-                        _binaryReceiveLock.Release();
+                    if (lockTaken) _binaryReceiveLock.Release();
                 }
             }
+        }
+
+        private async Task<BinaryPacket> ReadBinaryFrameNoLock(
+            CancellationToken cancellationToken,
+            Action onReadStarted)
+        {
+            byte[] header = new byte[BinaryHeaderSize];
+            onReadStarted?.Invoke();
+            await ReadExactlyAsync(header, cancellationToken).ConfigureAwait(false);
+
+            if (ReadUInt32LE(header, 0) != BinaryPacketMagic)
+                throw new InvalidDataException("Invalid XENO packet magic.");
+            if (header[4] != BinaryProtocolVersion)
+                throw new InvalidDataException("Unsupported XENO protocol version.");
+
+            uint payloadLength = ReadUInt32LE(header, 12);
+            if (payloadLength > BinaryMaximumFramePayloadSize)
+                throw new InvalidDataException("XENO frame exceeds maximum allowed size.");
+
+            byte[] payload = new byte[(int)payloadLength];
+            if (payload.Length > 0)
+                await ReadExactlyAsync(payload, cancellationToken).ConfigureAwait(false);
+
+            return new BinaryPacket
+            {
+                Command = header[5],
+                Flags = ReadUInt16LE(header, 6),
+                PacketId = ReadUInt32LE(header, 8),
+                Payload = payload
+            };
         }
 
         // ============================================================
@@ -610,7 +717,7 @@ namespace SeguraChain_Lib.Other.Object.Network
             CancellationToken cancellationToken)
         {
             if (byteCount <= 0 ||
-                byteCount > BinaryMaximumPayloadSize ||
+                byteCount > MaximumLogicalPayloadSize ||
                 Closed ||
                 _networkStream == null)
                 return null;
