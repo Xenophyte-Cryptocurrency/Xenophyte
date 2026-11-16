@@ -396,7 +396,7 @@ namespace SeguraChain_Lib.Other.Object.Network
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     int sourceOffset = fragmentIndex * BinaryFragmentDataSize;
-                    int dataLength = Math.Min(BinaryFragmentDataSize, payload.Length - sourceOffset);
+                    int dataLength = System.Math.Min(BinaryFragmentDataSize, payload.Length - sourceOffset);
                     byte[] framePayload = new byte[BinaryFragmentMetadataSize + dataLength];
                     WriteUInt32LE(framePayload, 0, packetId);
                     WriteUInt32LE(framePayload, 4, (uint)fragmentIndex);
@@ -500,7 +500,7 @@ namespace SeguraChain_Lib.Other.Object.Network
 
                     byte[] assembled = new byte[(int)totalLength];
                     int firstDataLength = first.Payload.Length - BinaryFragmentMetadataSize;
-                    int expectedFirstDataLength = Math.Min(BinaryFragmentDataSize, assembled.Length);
+                    int expectedFirstDataLength = System.Math.Min(BinaryFragmentDataSize, assembled.Length);
                     if (firstDataLength != expectedFirstDataLength)
                         throw new InvalidDataException("Invalid XENO first fragment length.");
                     Buffer.BlockCopy(first.Payload, BinaryFragmentMetadataSize, assembled, 0, firstDataLength);
@@ -520,7 +520,7 @@ namespace SeguraChain_Lib.Other.Object.Network
                             throw new InvalidDataException("Out-of-order or inconsistent XENO fragment.");
 
                         int dataLength = next.Payload.Length - BinaryFragmentMetadataSize;
-                        int expectedDataLength = Math.Min(BinaryFragmentDataSize, assembled.Length - assembledLength);
+                        int expectedDataLength = System.Math.Min(BinaryFragmentDataSize, assembled.Length - assembledLength);
                         if (dataLength != expectedDataLength || dataLength <= 0)
                             throw new InvalidDataException("Invalid XENO fragment payload length.");
                         Buffer.BlockCopy(next.Payload, BinaryFragmentMetadataSize, assembled, assembledLength, dataLength);
