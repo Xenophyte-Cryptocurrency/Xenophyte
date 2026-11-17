@@ -41,7 +41,6 @@ namespace SeguraChain_Lib.Other.Object.Network
         // 5       1     Command
         // 6       2     Flags
         // 8       4     Packet ID
-        // 16      N     Payload
         // 12      4     Data length
         // 16      N     Data
         //
