@@ -1,6 +1,6 @@
-﻿using SeguraChain_Lib.Blockchain.Transaction.Object;
+﻿using Xenophyte_Lib.Blockchain.Transaction.Object;
 
-namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.Packet.SubPacket.Response
+namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.Packet.SubPacket.Response
 {
     public class ClassPeerPacketSendBlockTransactionData
     {

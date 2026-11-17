@@ -1,8 +1,8 @@
-﻿using SeguraChain_Lib.Blockchain.Block.Object.Structure;
+﻿using Xenophyte_Lib.Blockchain.Block.Object.Structure;
 using System.Collections.Generic;
 
 
-namespace SeguraChain_Lib.Instance.Node.Network.Services.API.Packet.SubPacket.Response
+namespace Xenophyte_Lib.Instance.Node.Network.Services.API.Packet.SubPacket.Response
 {
     public class ClassApiPeerPacketSendListBlockTransaction
     {

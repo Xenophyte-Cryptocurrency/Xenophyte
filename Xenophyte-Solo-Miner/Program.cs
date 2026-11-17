@@ -1,18 +1,18 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Reflection;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Log;
-using SeguraChain_Lib.TaskManager;
-using SeguraChain_Solo_Miner.Argument.Enum;
-using SeguraChain_Solo_Miner.Argument.Function;
-using SeguraChain_Solo_Miner.Exception;
-using SeguraChain_Solo_Miner.Main;
-using SeguraChain_Solo_Miner.Setting.Enum;
-using SeguraChain_Solo_Miner.Setting.Function;
-using SeguraChain_Solo_Miner.Setting.Object;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Log;
+using Xenophyte_Lib.TaskManager;
+using Xenophyte_Solo_Miner.Argument.Enum;
+using Xenophyte_Solo_Miner.Argument.Function;
+using Xenophyte_Solo_Miner.Exception;
+using Xenophyte_Solo_Miner.Main;
+using Xenophyte_Solo_Miner.Setting.Enum;
+using Xenophyte_Solo_Miner.Setting.Function;
+using Xenophyte_Solo_Miner.Setting.Object;
 
-namespace SeguraChain_Solo_Miner
+namespace Xenophyte_Solo_Miner
 {
     class Program
     {

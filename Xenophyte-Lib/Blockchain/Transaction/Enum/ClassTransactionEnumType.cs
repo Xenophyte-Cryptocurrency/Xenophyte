@@ -1,6 +1,6 @@
 ﻿
 
-namespace SeguraChain_Lib.Blockchain.Transaction.Enum
+namespace Xenophyte_Lib.Blockchain.Transaction.Enum
 {
     public enum ClassTransactionEnumType
     {

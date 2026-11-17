@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Service.Object
+﻿namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Service.Object
 {
     public class ClassPeerSyncReturnedObject <T>
     {

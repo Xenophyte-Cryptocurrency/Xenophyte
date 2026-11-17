@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Lib.Instance.Node.Network.Enum.P2P.Status
+﻿namespace Xenophyte_Lib.Instance.Node.Network.Enum.P2P.Status
 {
     public enum ClassPeerEnumStatus
     {

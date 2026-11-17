@@ -1,6 +1,6 @@
-﻿using SeguraChain_Lib.Blockchain.Block.Object.Structure;
+﻿using Xenophyte_Lib.Blockchain.Block.Object.Structure;
 
-namespace SeguraChain_Lib.Blockchain.Block.Object.Task.TransactionConfirmation
+namespace Xenophyte_Lib.Blockchain.Block.Object.Task.TransactionConfirmation
 {
     public class ClassBlockConfirmationTransactionResultObject
     {

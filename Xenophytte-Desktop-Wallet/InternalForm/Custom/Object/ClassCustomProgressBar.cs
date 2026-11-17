@@ -1,8 +1,8 @@
-﻿using SeguraChain_Desktop_Wallet.Components;
+﻿using Xenophyte_Desktop_Wallet.Components;
 using System.Drawing;
 using System.Windows.Forms;
 
-namespace SeguraChain_Desktop_Wallet.InternalForm.Custom.Object
+namespace Xenophyte_Desktop_Wallet.InternalForm.Custom.Object
 {
     class ClassCustomProgressBar : ProgressBar
     {

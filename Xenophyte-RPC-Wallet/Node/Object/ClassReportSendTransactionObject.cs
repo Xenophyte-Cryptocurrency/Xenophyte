@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_RPC_Wallet.Node.Object
+﻿namespace Xenophyte_RPC_Wallet.Node.Object
 {
     public class ClassReportSendTransactionObject
     {

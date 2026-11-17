@@ -1,6 +1,6 @@
-﻿using SeguraChain_RPC_Wallet.Node.Object;
+﻿using Xenophyte_RPC_Wallet.Node.Object;
 
-namespace SeguraChain_RPC_Wallet.API.Service.Packet.Object.Response.POST
+namespace Xenophyte_RPC_Wallet.API.Service.Packet.Object.Response.POST
 {
     public class ClassRpcApiSendTransactionReport
     {

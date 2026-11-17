@@ -2,17 +2,17 @@
 using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
-using SeguraChain_Lib.Blockchain.Block.Object.Structure;
-using SeguraChain_Lib.Blockchain.Database;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Blockchain.Stats.Object;
-using SeguraChain_Lib.Blockchain.Transaction.Enum;
-using SeguraChain_Lib.Blockchain.Transaction.Object;
-using SeguraChain_Lib.Blockchain.Wallet.Object.Blockchain;
-using SeguraChain_Lib.Other.Object.List;
+using Xenophyte_Lib.Blockchain.Block.Object.Structure;
+using Xenophyte_Lib.Blockchain.Database;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Blockchain.Stats.Object;
+using Xenophyte_Lib.Blockchain.Transaction.Enum;
+using Xenophyte_Lib.Blockchain.Transaction.Object;
+using Xenophyte_Lib.Blockchain.Wallet.Object.Blockchain;
+using Xenophyte_Lib.Other.Object.List;
 
 
-namespace SeguraChain_Lib.Blockchain.Stats.Function
+namespace Xenophyte_Lib.Blockchain.Stats.Function
 {
     public class ClassBlockchainStats
     {

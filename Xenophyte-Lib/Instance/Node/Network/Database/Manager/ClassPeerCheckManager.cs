@@ -3,16 +3,16 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
-using SeguraChain_Lib.Blockchain.Sovereign.Database;
-using SeguraChain_Lib.Blockchain.Wallet.Function;
-using SeguraChain_Lib.Instance.Node.Network.Enum.P2P.Status;
-using SeguraChain_Lib.Instance.Node.Network.Services.Firewall.Manager;
-using SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.ClientConnect.Object;
-using SeguraChain_Lib.Instance.Node.Setting.Object;
-using SeguraChain_Lib.Log;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Blockchain.Sovereign.Database;
+using Xenophyte_Lib.Blockchain.Wallet.Function;
+using Xenophyte_Lib.Instance.Node.Network.Enum.P2P.Status;
+using Xenophyte_Lib.Instance.Node.Network.Services.Firewall.Manager;
+using Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.ClientConnect.Object;
+using Xenophyte_Lib.Instance.Node.Setting.Object;
+using Xenophyte_Lib.Log;
+using Xenophyte_Lib.Utility;
 
-namespace SeguraChain_Lib.Instance.Node.Network.Database.Manager
+namespace Xenophyte_Lib.Instance.Node.Network.Database.Manager
 {
     /// <summary>
     /// A static class for check peer tcp connection server or client.

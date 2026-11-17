@@ -1,24 +1,24 @@
-﻿using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Blockchain.Stats.Object;
-using SeguraChain_Lib.Blockchain.Transaction.Enum;
-using SeguraChain_Lib.Blockchain.Transaction.Object;
-using SeguraChain_Lib.Blockchain.Transaction.Utility;
-using SeguraChain_Lib.Instance.Node.Network.Services.API.Utility;
-using SeguraChain_Lib.Log;
-using SeguraChain_Lib.Other.Object.List;
-using SeguraChain_Lib.Utility;
-using SeguraChain_RPC_Wallet.API.Service.Packet.Object.Request;
-using SeguraChain_RPC_Wallet.API.Service.Packet.Object.Response.POST;
-using SeguraChain_RPC_Wallet.Config;
-using SeguraChain_RPC_Wallet.Database;
-using SeguraChain_RPC_Wallet.Database.Object;
-using SeguraChain_RPC_Wallet.Database.Wallet;
-using SeguraChain_RPC_Wallet.Node.Object;
+﻿using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Blockchain.Stats.Object;
+using Xenophyte_Lib.Blockchain.Transaction.Enum;
+using Xenophyte_Lib.Blockchain.Transaction.Object;
+using Xenophyte_Lib.Blockchain.Transaction.Utility;
+using Xenophyte_Lib.Instance.Node.Network.Services.API.Utility;
+using Xenophyte_Lib.Log;
+using Xenophyte_Lib.Other.Object.List;
+using Xenophyte_Lib.Utility;
+using Xenophyte_RPC_Wallet.API.Service.Packet.Object.Request;
+using Xenophyte_RPC_Wallet.API.Service.Packet.Object.Response.POST;
+using Xenophyte_RPC_Wallet.Config;
+using Xenophyte_RPC_Wallet.Database;
+using Xenophyte_RPC_Wallet.Database.Object;
+using Xenophyte_RPC_Wallet.Database.Wallet;
+using Xenophyte_RPC_Wallet.Node.Object;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SeguraChain_RPC_Wallet.Node.Client
+namespace Xenophyte_RPC_Wallet.Node.Client
 {
     public class ClassNodeApiClient
     {

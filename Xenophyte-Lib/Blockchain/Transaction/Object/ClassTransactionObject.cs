@@ -1,8 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.Numerics;
-using SeguraChain_Lib.Blockchain.Transaction.Enum;
+using Xenophyte_Lib.Blockchain.Transaction.Enum;
 
-namespace SeguraChain_Lib.Blockchain.Transaction.Object
+namespace Xenophyte_Lib.Blockchain.Transaction.Object
 {
     public class ClassTransactionObject
     {

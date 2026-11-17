@@ -1,8 +1,8 @@
 ﻿using Newtonsoft.Json;
-using SeguraChain_Lib.Instance.Node.Network.Enum.P2P.Status;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Instance.Node.Network.Enum.P2P.Status;
+using Xenophyte_Lib.Utility;
 
-namespace SeguraChain_Lib.Instance.Node.Network.Database.Object
+namespace Xenophyte_Lib.Instance.Node.Network.Database.Object
 {
     public class ClassPeerObject
     {

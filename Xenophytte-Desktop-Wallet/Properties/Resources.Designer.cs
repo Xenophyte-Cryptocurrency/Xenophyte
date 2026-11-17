@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace SeguraChain_Desktop_Wallet.Properties {
+namespace Xenophyte_Desktop_Wallet.Properties {
     using System;
     
     
@@ -39,7 +39,7 @@ namespace SeguraChain_Desktop_Wallet.Properties {
         internal static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("SeguraChain_Desktop_Wallet.Properties.Resources", typeof(Resources).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Xenophyte_Desktop_Wallet.Properties.Resources", typeof(Resources).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;

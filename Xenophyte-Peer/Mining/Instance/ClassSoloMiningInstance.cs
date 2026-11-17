@@ -3,21 +3,21 @@ using System.Collections.Generic;
 using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
-using SeguraChain_Lib.Blockchain.Block.Enum;
-using SeguraChain_Lib.Blockchain.Block.Object.Structure;
-using SeguraChain_Lib.Blockchain.Database;
-using SeguraChain_Lib.Blockchain.Mining.Function;
-using SeguraChain_Lib.Blockchain.Mining.Object;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Blockchain.Stats.Function;
-using SeguraChain_Lib.Instance.Node.Network.Database;
-using SeguraChain_Lib.Instance.Node.Network.Services.P2P.Broadcast;
-using SeguraChain_Lib.Instance.Node.Setting.Object;
-using SeguraChain_Lib.Log;
-using SeguraChain_Lib.Other.Object.SHA3;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Blockchain.Block.Enum;
+using Xenophyte_Lib.Blockchain.Block.Object.Structure;
+using Xenophyte_Lib.Blockchain.Database;
+using Xenophyte_Lib.Blockchain.Mining.Function;
+using Xenophyte_Lib.Blockchain.Mining.Object;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Blockchain.Stats.Function;
+using Xenophyte_Lib.Instance.Node.Network.Database;
+using Xenophyte_Lib.Instance.Node.Network.Services.P2P.Broadcast;
+using Xenophyte_Lib.Instance.Node.Setting.Object;
+using Xenophyte_Lib.Log;
+using Xenophyte_Lib.Other.Object.SHA3;
+using Xenophyte_Lib.Utility;
 
-namespace SeguraChain_Peer.Mining.Instance
+namespace Xenophyte_Peer.Mining.Instance
 {
     public class ClassSoloMiningInstance
     {

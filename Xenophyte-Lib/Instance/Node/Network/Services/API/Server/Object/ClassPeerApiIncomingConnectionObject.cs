@@ -1,9 +1,9 @@
 ﻿using System.Collections.Concurrent;
 using System.Threading;
-using SeguraChain_Lib.Instance.Node.Network.Services.API.Client;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Instance.Node.Network.Services.API.Client;
+using Xenophyte_Lib.Utility;
 
-namespace SeguraChain_Lib.Instance.Node.Network.Services.API.Server.Object
+namespace Xenophyte_Lib.Instance.Node.Network.Services.API.Server.Object
 {
     public class ClassPeerApiIncomingConnectionObject
     {

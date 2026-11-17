@@ -1,6 +1,6 @@
-﻿using SeguraChain_Lib.Blockchain.Mining.Object;
+﻿using Xenophyte_Lib.Blockchain.Mining.Object;
 
-namespace SeguraChain_Lib.Blockchain.MemPool.Object
+namespace Xenophyte_Lib.Blockchain.MemPool.Object
 {
     public class ClassMemPoolMiningPowShareObject
     {

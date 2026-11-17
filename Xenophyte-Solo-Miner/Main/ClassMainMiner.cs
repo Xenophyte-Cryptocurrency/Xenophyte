@@ -1,14 +1,14 @@
 ﻿using System;
 using System.Threading;
-using SeguraChain_Lib.Log;
-using SeguraChain_Lib.Utility;
-using SeguraChain_Solo_Miner.Command.Enum;
-using SeguraChain_Solo_Miner.Mining;
-using SeguraChain_Solo_Miner.Network.Function;
-using SeguraChain_Solo_Miner.Network.Object;
-using SeguraChain_Solo_Miner.Setting.Object;
+using Xenophyte_Lib.Log;
+using Xenophyte_Lib.Utility;
+using Xenophyte_Solo_Miner.Command.Enum;
+using Xenophyte_Solo_Miner.Mining;
+using Xenophyte_Solo_Miner.Network.Function;
+using Xenophyte_Solo_Miner.Network.Object;
+using Xenophyte_Solo_Miner.Setting.Object;
 
-namespace SeguraChain_Solo_Miner.Main
+namespace Xenophyte_Solo_Miner.Main
 {
     public class ClassMainMiner
     {

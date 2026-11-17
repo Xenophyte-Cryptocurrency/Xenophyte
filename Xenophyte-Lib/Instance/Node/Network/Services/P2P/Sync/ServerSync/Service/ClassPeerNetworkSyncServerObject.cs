@@ -8,18 +8,18 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
-using SeguraChain_Lib.Instance.Node.Network.Database;
-using SeguraChain_Lib.Instance.Node.Network.Services.Firewall.Manager;
-using SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Client;
-using SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Object;
-using SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Service.Enum;
-using SeguraChain_Lib.Instance.Node.Setting.Object;
-using SeguraChain_Lib.Log;
-using SeguraChain_Lib.Other.Object.List;
-using SeguraChain_Lib.Other.Object.Network;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Instance.Node.Network.Database;
+using Xenophyte_Lib.Instance.Node.Network.Services.Firewall.Manager;
+using Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Client;
+using Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Object;
+using Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Service.Enum;
+using Xenophyte_Lib.Instance.Node.Setting.Object;
+using Xenophyte_Lib.Log;
+using Xenophyte_Lib.Other.Object.List;
+using Xenophyte_Lib.Other.Object.Network;
+using Xenophyte_Lib.Utility;
 
-namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Service
+namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Service
 {
     public class ClassPeerNetworkSyncServerObject : IDisposable
     {

@@ -1,6 +1,6 @@
-﻿using SeguraChain_Lib.Blockchain.Block.Object.Structure;
-using SeguraChain_Lib.Other.Object.List;
-using SeguraChain_Lib.Utility;
+﻿using Xenophyte_Lib.Blockchain.Block.Object.Structure;
+using Xenophyte_Lib.Other.Object.List;
+using Xenophyte_Lib.Utility;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -9,7 +9,7 @@ using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SeguraChain_Desktop_Wallet.Sync.Object
+namespace Xenophyte_Desktop_Wallet.Sync.Object
 {
     public class ClassSyncCacheObject
     {

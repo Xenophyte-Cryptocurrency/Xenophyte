@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Lib.Other.Object.Math
+﻿namespace Xenophyte_Lib.Other.Object.Math
 {
     public class MathPoint
     {

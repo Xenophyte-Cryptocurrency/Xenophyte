@@ -1,6 +1,6 @@
-﻿using SeguraChain_Lib.Blockchain.Mining.Enum;
+﻿using Xenophyte_Lib.Blockchain.Mining.Enum;
 
-namespace SeguraChain_Lib.Instance.Node.Network.Services.API.Packet.SubPacket.Response
+namespace Xenophyte_Lib.Instance.Node.Network.Services.API.Packet.SubPacket.Response
 {
     public class ClassApiPeerPacketSendMiningShareResponse
     {

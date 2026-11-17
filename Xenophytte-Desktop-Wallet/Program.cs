@@ -3,11 +3,11 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Windows.Forms;
-using SeguraChain_Desktop_Wallet.InternalForm.Startup;
-using SeguraChain_Lib.Log;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Desktop_Wallet.InternalForm.Startup;
+using Xenophyte_Lib.Log;
+using Xenophyte_Lib.Utility;
 
-namespace SeguraChain_Desktop_Wallet
+namespace Xenophyte_Desktop_Wallet
 {
     static class Program
     {

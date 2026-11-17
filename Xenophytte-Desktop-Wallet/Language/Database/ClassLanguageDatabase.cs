@@ -2,14 +2,14 @@
 using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json;
-using SeguraChain_Desktop_Wallet.Common;
-using SeguraChain_Desktop_Wallet.Language.Enum;
-using SeguraChain_Desktop_Wallet.Language.Object;
-using SeguraChain_Desktop_Wallet.Settings.Enum;
-using SeguraChain_Lib.Log;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Desktop_Wallet.Common;
+using Xenophyte_Desktop_Wallet.Language.Enum;
+using Xenophyte_Desktop_Wallet.Language.Object;
+using Xenophyte_Desktop_Wallet.Settings.Enum;
+using Xenophyte_Lib.Log;
+using Xenophyte_Lib.Utility;
 
-namespace SeguraChain_Desktop_Wallet.Language.Database
+namespace Xenophyte_Desktop_Wallet.Language.Database
 {
     public class ClassLanguageDatabase
     {

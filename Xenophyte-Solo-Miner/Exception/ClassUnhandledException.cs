@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Utility;
 
-namespace SeguraChain_Solo_Miner.Exception
+namespace Xenophyte_Solo_Miner.Exception
 {
     public class ClassUnhandledException
     {

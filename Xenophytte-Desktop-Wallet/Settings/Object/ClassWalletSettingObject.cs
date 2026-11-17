@@ -1,13 +1,13 @@
 ﻿using System;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
-using SeguraChain_Desktop_Wallet.Settings.Enum;
-using SeguraChain_Lib.Blockchain.Database.DatabaseSetting;
-using SeguraChain_Lib.Instance.Node.Network.Database.Manager;
-using SeguraChain_Lib.Instance.Node.Setting.Object;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Desktop_Wallet.Settings.Enum;
+using Xenophyte_Lib.Blockchain.Database.DatabaseSetting;
+using Xenophyte_Lib.Instance.Node.Network.Database.Manager;
+using Xenophyte_Lib.Instance.Node.Setting.Object;
+using Xenophyte_Lib.Utility;
 
-namespace SeguraChain_Desktop_Wallet.Settings.Object
+namespace Xenophyte_Desktop_Wallet.Settings.Object
 {
     public class ClassWalletSettingObject
     {

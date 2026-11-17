@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Lib.Blockchain.Sovereign.Enum
+﻿namespace Xenophyte_Lib.Blockchain.Sovereign.Enum
 {
     public enum ClassSovereignEnumUpdateCheckStatus
     {

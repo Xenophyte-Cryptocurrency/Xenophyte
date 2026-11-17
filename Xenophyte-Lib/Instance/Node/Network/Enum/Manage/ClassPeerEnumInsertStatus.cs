@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Lib.Instance.Node.Network.Enum.Manage
+﻿namespace Xenophyte_Lib.Instance.Node.Network.Enum.Manage
 {
     public enum ClassPeerEnumInsertStatus
     {

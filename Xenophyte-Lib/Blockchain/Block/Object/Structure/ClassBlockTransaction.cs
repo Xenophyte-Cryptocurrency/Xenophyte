@@ -1,11 +1,11 @@
 ﻿using System.Numerics;
 using System.Threading;
 using Newtonsoft.Json;
-using SeguraChain_Lib.Blockchain.Transaction.Enum;
-using SeguraChain_Lib.Blockchain.Transaction.Object;
-using SeguraChain_Lib.Blockchain.Transaction.Utility;
+using Xenophyte_Lib.Blockchain.Transaction.Enum;
+using Xenophyte_Lib.Blockchain.Transaction.Object;
+using Xenophyte_Lib.Blockchain.Transaction.Utility;
 
-namespace SeguraChain_Lib.Blockchain.Block.Object.Structure
+namespace Xenophyte_Lib.Blockchain.Block.Object.Structure
 {
     /// <summary>
     ///  Contains transactions id's and transactions confirmations numbers.

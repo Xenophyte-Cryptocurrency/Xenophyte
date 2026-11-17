@@ -12,38 +12,38 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using SeguraChain_Desktop_Wallet.Common;
-using SeguraChain_Desktop_Wallet.Components;
-using SeguraChain_Desktop_Wallet.Enum;
-using SeguraChain_Desktop_Wallet.InternalForm.Custom.Object;
-using SeguraChain_Desktop_Wallet.InternalForm.Rescan;
-using SeguraChain_Desktop_Wallet.InternalForm.Startup;
-using SeguraChain_Desktop_Wallet.InternalForm.TransactionHistory;
-using SeguraChain_Desktop_Wallet.Language.Enum;
-using SeguraChain_Desktop_Wallet.Wallet.Function;
-using SeguraChain_Desktop_Wallet.InternalForm.Create;
-using SeguraChain_Desktop_Wallet.InternalForm.SendTransaction;
-using SeguraChain_Desktop_Wallet.Language.Object;
-using SeguraChain_Desktop_Wallet.MainForm.Object;
-using SeguraChain_Desktop_Wallet.MainForm.System;
-using SeguraChain_Desktop_Wallet.Settings.Enum;
-using SeguraChain_Lib.Blockchain.Block.Object.Structure;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Blockchain.Stats.Object;
-using SeguraChain_Lib.Blockchain.Transaction.Utility;
-using SeguraChain_Lib.Blockchain.Wallet.Function;
-using SeguraChain_Lib.Utility;
-using SeguraChain_Desktop_Wallet.InternalForm.Import;
-using SeguraChain_Lib.Other.Object.List;
-using SeguraChain_Lib.TaskManager;
-using SeguraChain_Desktop_Wallet.InternalForm.Setting;
+using Xenophyte_Desktop_Wallet.Common;
+using Xenophyte_Desktop_Wallet.Components;
+using Xenophyte_Desktop_Wallet.Enum;
+using Xenophyte_Desktop_Wallet.InternalForm.Custom.Object;
+using Xenophyte_Desktop_Wallet.InternalForm.Rescan;
+using Xenophyte_Desktop_Wallet.InternalForm.Startup;
+using Xenophyte_Desktop_Wallet.InternalForm.TransactionHistory;
+using Xenophyte_Desktop_Wallet.Language.Enum;
+using Xenophyte_Desktop_Wallet.Wallet.Function;
+using Xenophyte_Desktop_Wallet.InternalForm.Create;
+using Xenophyte_Desktop_Wallet.InternalForm.SendTransaction;
+using Xenophyte_Desktop_Wallet.Language.Object;
+using Xenophyte_Desktop_Wallet.MainForm.Object;
+using Xenophyte_Desktop_Wallet.MainForm.System;
+using Xenophyte_Desktop_Wallet.Settings.Enum;
+using Xenophyte_Lib.Blockchain.Block.Object.Structure;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Blockchain.Stats.Object;
+using Xenophyte_Lib.Blockchain.Transaction.Utility;
+using Xenophyte_Lib.Blockchain.Wallet.Function;
+using Xenophyte_Lib.Utility;
+using Xenophyte_Desktop_Wallet.InternalForm.Import;
+using Xenophyte_Lib.Other.Object.List;
+using Xenophyte_Lib.TaskManager;
+using Xenophyte_Desktop_Wallet.InternalForm.Setting;
 using EO.WebBrowser;
 using EO.WinForm;
 using Org.BouncyCastle.Asn1.Crmf;
-using SeguraChain_Lib.Blockchain.Database.Memory.Main.Enum;
+using Xenophyte_Lib.Blockchain.Database.Memory.Main.Enum;
 using Org.BouncyCastle.Crmf;
 
-namespace SeguraChain_Desktop_Wallet
+namespace Xenophyte_Desktop_Wallet
 {
     public partial class ClassWalletMainInterfaceForm : Form
     {
@@ -2871,7 +2871,7 @@ namespace SeguraChain_Desktop_Wallet
 
         private void pictureBoxLogo_Click(object sender, EventArgs e)
         {
-            // TODO: Send user to https://seguraChain.com
+            // TODO: Send user to https://Xenophyte.com
         }
 
         private void buttonSendTransactionOpenContactList_Click(object sender, EventArgs e)

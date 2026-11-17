@@ -1,5 +1,5 @@
 ﻿
-namespace SeguraChain_Desktop_Wallet.InternalForm.Setup.StepForm
+namespace Xenophyte_Desktop_Wallet.InternalForm.Setup.StepForm
 {
     partial class ClassWalletSetupStepOneForm
     {

@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Solo_Miner.Network.Object
+﻿namespace Xenophyte_Solo_Miner.Network.Object
 {
     public class ClassMiningNetworkPeerObject
     {

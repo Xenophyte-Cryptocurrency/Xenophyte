@@ -1,13 +1,13 @@
 ﻿
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_RPC_Wallet.Command.Enum;
-using SeguraChain_RPC_Wallet.Config;
-using SeguraChain_RPC_Wallet.Database;
-using SeguraChain_RPC_Wallet.Database.Wallet;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_RPC_Wallet.Command.Enum;
+using Xenophyte_RPC_Wallet.Config;
+using Xenophyte_RPC_Wallet.Database;
+using Xenophyte_RPC_Wallet.Database.Wallet;
 using System;
 using System.Threading;
 
-namespace SeguraChain_RPC_Wallet.Command
+namespace Xenophyte_RPC_Wallet.Command
 {
     public class ClassRpcCommand
     {

@@ -1,6 +1,6 @@
-﻿using SeguraChain_Lib.Instance.Node.Network.Enum.API.Packet;
+﻿using Xenophyte_Lib.Instance.Node.Network.Enum.API.Packet;
 
-namespace SeguraChain_Lib.Instance.Node.Network.Services.API.Packet
+namespace Xenophyte_Lib.Instance.Node.Network.Services.API.Packet
 {
     public class ClassApiPeerPacketObjectSend
     {

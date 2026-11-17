@@ -2,7 +2,7 @@
 using System.IO;
 using Newtonsoft.Json;
 
-namespace SeguraChain_Desktop_Wallet.Wallet.Object
+namespace Xenophyte_Desktop_Wallet.Wallet.Object
 {
     public class ClassWalletDataObject
     {

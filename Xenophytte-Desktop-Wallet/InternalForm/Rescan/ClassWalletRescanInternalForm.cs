@@ -2,13 +2,13 @@
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using SeguraChain_Desktop_Wallet.Common;
-using SeguraChain_Desktop_Wallet.Components;
-using SeguraChain_Desktop_Wallet.Language.Enum;
-using SeguraChain_Desktop_Wallet.Language.Object;
-using SeguraChain_Lib.Blockchain.Setting;
+using Xenophyte_Desktop_Wallet.Common;
+using Xenophyte_Desktop_Wallet.Components;
+using Xenophyte_Desktop_Wallet.Language.Enum;
+using Xenophyte_Desktop_Wallet.Language.Object;
+using Xenophyte_Lib.Blockchain.Setting;
 
-namespace SeguraChain_Desktop_Wallet.InternalForm.Rescan
+namespace Xenophyte_Desktop_Wallet.InternalForm.Rescan
 {
     public partial class ClassWalletRescanInternalForm : Form
     {

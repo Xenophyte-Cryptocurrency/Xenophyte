@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Desktop_Wallet.InternalForm.Rescan
+﻿namespace Xenophyte_Desktop_Wallet.InternalForm.Rescan
 {
     partial class ClassWalletRescanInternalForm
     {

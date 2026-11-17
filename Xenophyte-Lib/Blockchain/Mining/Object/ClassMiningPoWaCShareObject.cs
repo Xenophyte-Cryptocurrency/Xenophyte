@@ -1,6 +1,6 @@
 ﻿using System.Numerics;
 
-namespace SeguraChain_Lib.Blockchain.Mining.Object
+namespace Xenophyte_Lib.Blockchain.Mining.Object
 {
     public class ClassMiningPoWaCShareObject
     {

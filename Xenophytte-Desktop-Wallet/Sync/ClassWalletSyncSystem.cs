@@ -8,32 +8,32 @@ using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
-using SeguraChain_Desktop_Wallet.Common;
-using SeguraChain_Desktop_Wallet.MainForm.Object;
-using SeguraChain_Desktop_Wallet.Settings.Object;
-using SeguraChain_Desktop_Wallet.Sync.Object;
-using SeguraChain_Desktop_Wallet.Settings.Enum;
-using SeguraChain_Desktop_Wallet.Wallet.Object;
-using SeguraChain_Lib.Blockchain.Block.Enum;
-using SeguraChain_Lib.Blockchain.Block.Object.Structure;
-using SeguraChain_Lib.Blockchain.Database;
-using SeguraChain_Lib.Blockchain.MemPool.Database;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Blockchain.Stats.Function;
-using SeguraChain_Lib.Blockchain.Stats.Object;
-using SeguraChain_Lib.Blockchain.Transaction.Enum;
-using SeguraChain_Lib.Blockchain.Transaction.Object;
-using SeguraChain_Lib.Blockchain.Transaction.Utility;
-using SeguraChain_Lib.Blockchain.Wallet.Function;
-using SeguraChain_Lib.Instance.Node;
-using SeguraChain_Lib.Instance.Node.Network.Services.P2P.Broadcast;
-using SeguraChain_Lib.Log;
-using SeguraChain_Lib.Utility;
-using SeguraChain_Lib.Other.Object.List;
+using Xenophyte_Desktop_Wallet.Common;
+using Xenophyte_Desktop_Wallet.MainForm.Object;
+using Xenophyte_Desktop_Wallet.Settings.Object;
+using Xenophyte_Desktop_Wallet.Sync.Object;
+using Xenophyte_Desktop_Wallet.Settings.Enum;
+using Xenophyte_Desktop_Wallet.Wallet.Object;
+using Xenophyte_Lib.Blockchain.Block.Enum;
+using Xenophyte_Lib.Blockchain.Block.Object.Structure;
+using Xenophyte_Lib.Blockchain.Database;
+using Xenophyte_Lib.Blockchain.MemPool.Database;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Blockchain.Stats.Function;
+using Xenophyte_Lib.Blockchain.Stats.Object;
+using Xenophyte_Lib.Blockchain.Transaction.Enum;
+using Xenophyte_Lib.Blockchain.Transaction.Object;
+using Xenophyte_Lib.Blockchain.Transaction.Utility;
+using Xenophyte_Lib.Blockchain.Wallet.Function;
+using Xenophyte_Lib.Instance.Node;
+using Xenophyte_Lib.Instance.Node.Network.Services.P2P.Broadcast;
+using Xenophyte_Lib.Log;
+using Xenophyte_Lib.Utility;
+using Xenophyte_Lib.Other.Object.List;
 using System.Net;
-using SeguraChain_Lib.Instance.Node.Network.Services.API.Utility;
+using Xenophyte_Lib.Instance.Node.Network.Services.API.Utility;
 
-namespace SeguraChain_Desktop_Wallet.Sync
+namespace Xenophyte_Desktop_Wallet.Sync
 {
     public class ClassWalletSyncSystem
     {

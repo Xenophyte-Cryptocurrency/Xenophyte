@@ -2,11 +2,11 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using SeguraChain_Lib.Instance.Node.Network.Services.Firewall.Enum;
-using SeguraChain_Lib.Instance.Node.Network.Services.Firewall.Object;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Instance.Node.Network.Services.Firewall.Enum;
+using Xenophyte_Lib.Instance.Node.Network.Services.Firewall.Object;
+using Xenophyte_Lib.Utility;
 
-namespace SeguraChain_Lib.Instance.Node.Network.Services.Firewall.Manager
+namespace Xenophyte_Lib.Instance.Node.Network.Services.Firewall.Manager
 {
     public class ClassPeerFirewallManager
     {

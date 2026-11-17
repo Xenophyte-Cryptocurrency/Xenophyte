@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Lib.Instance.Node.Network.Services.API.Server.Enum
+﻿namespace Xenophyte_Lib.Instance.Node.Network.Services.API.Server.Enum
 {
     public enum ClassPeerApiHandleIncomingConnectionEnum
     {

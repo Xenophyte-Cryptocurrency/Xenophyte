@@ -1,8 +1,8 @@
-﻿using SeguraChain_IO_Cache_Network_System.Client;
-using SeguraChain_IO_Cache_Network_System.Config;
-using SeguraChain_IO_Cache_Network_System.Server.Object;
-using SeguraChain_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Main;
-using SeguraChain_Lib.Other.Object.List;
+﻿using Xenophyte_IO_Cache_Network_System.Client;
+using Xenophyte_IO_Cache_Network_System.Config;
+using Xenophyte_IO_Cache_Network_System.Server.Object;
+using Xenophyte_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Main;
+using Xenophyte_Lib.Other.Object.List;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -13,7 +13,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SeguraChain_IO_Cache_Network_System.Server
+namespace Xenophyte_IO_Cache_Network_System.Server
 {
     public class ClassIoCacheServerObject
     {

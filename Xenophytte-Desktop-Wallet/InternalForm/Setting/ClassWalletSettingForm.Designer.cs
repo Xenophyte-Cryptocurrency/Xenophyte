@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Desktop_Wallet.InternalForm.Setting
+﻿namespace Xenophyte_Desktop_Wallet.InternalForm.Setting
 {
     partial class ClassWalletSettingForm
     {

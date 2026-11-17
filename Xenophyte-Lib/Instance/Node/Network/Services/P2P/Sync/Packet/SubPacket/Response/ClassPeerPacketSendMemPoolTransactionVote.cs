@@ -1,7 +1,7 @@
-﻿using SeguraChain_Lib.Blockchain.Transaction.Enum;
+﻿using Xenophyte_Lib.Blockchain.Transaction.Enum;
 using System.Collections.Generic;
 
-namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.Packet.SubPacket.Response
+namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.Packet.SubPacket.Response
 {
     public class ClassPeerPacketSendMemPoolTransactionVote
     {

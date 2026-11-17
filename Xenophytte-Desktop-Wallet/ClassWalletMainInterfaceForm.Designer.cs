@@ -1,6 +1,6 @@
-﻿using SeguraChain_Desktop_Wallet.InternalForm.Custom.Object;
+﻿using Xenophyte_Desktop_Wallet.InternalForm.Custom.Object;
 
-namespace SeguraChain_Desktop_Wallet
+namespace Xenophyte_Desktop_Wallet
 {
     partial class ClassWalletMainInterfaceForm
     {

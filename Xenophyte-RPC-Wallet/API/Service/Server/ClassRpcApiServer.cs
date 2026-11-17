@@ -1,15 +1,15 @@
-﻿using SeguraChain_RPC_Wallet.API.Service.Client;
-using SeguraChain_RPC_Wallet.API.Service.Client.Sub;
-using SeguraChain_RPC_Wallet.Config;
-using SeguraChain_RPC_Wallet.Database;
-using SeguraChain_RPC_Wallet.Node.Client;
+﻿using Xenophyte_RPC_Wallet.API.Service.Client;
+using Xenophyte_RPC_Wallet.API.Service.Client.Sub;
+using Xenophyte_RPC_Wallet.Config;
+using Xenophyte_RPC_Wallet.Database;
+using Xenophyte_RPC_Wallet.Node.Client;
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SeguraChain_RPC_Wallet.API.Service.Server
+namespace Xenophyte_RPC_Wallet.API.Service.Server
 {
     public class ClassRpcApiServer
     {

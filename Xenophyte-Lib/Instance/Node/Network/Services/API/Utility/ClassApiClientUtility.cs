@@ -1,16 +1,16 @@
-﻿using SeguraChain_Lib.Blockchain.Block.Enum;
-using SeguraChain_Lib.Blockchain.Block.Object.Structure;
-using SeguraChain_Lib.Blockchain.Mining.Enum;
-using SeguraChain_Lib.Blockchain.Mining.Object;
-using SeguraChain_Lib.Blockchain.Stats.Object;
-using SeguraChain_Lib.Blockchain.Transaction.Object;
-using SeguraChain_Lib.Instance.Node.Network.Enum.API.Packet;
-using SeguraChain_Lib.Instance.Node.Network.Services.API.Client.Enum;
-using SeguraChain_Lib.Instance.Node.Network.Services.API.Packet;
-using SeguraChain_Lib.Instance.Node.Network.Services.API.Packet.SubPacket.Request;
-using SeguraChain_Lib.Instance.Node.Network.Services.API.Packet.SubPacket.Response;
-using SeguraChain_Lib.Other.Object.List;
-using SeguraChain_Lib.Utility;
+﻿using Xenophyte_Lib.Blockchain.Block.Enum;
+using Xenophyte_Lib.Blockchain.Block.Object.Structure;
+using Xenophyte_Lib.Blockchain.Mining.Enum;
+using Xenophyte_Lib.Blockchain.Mining.Object;
+using Xenophyte_Lib.Blockchain.Stats.Object;
+using Xenophyte_Lib.Blockchain.Transaction.Object;
+using Xenophyte_Lib.Instance.Node.Network.Enum.API.Packet;
+using Xenophyte_Lib.Instance.Node.Network.Services.API.Client.Enum;
+using Xenophyte_Lib.Instance.Node.Network.Services.API.Packet;
+using Xenophyte_Lib.Instance.Node.Network.Services.API.Packet.SubPacket.Request;
+using Xenophyte_Lib.Instance.Node.Network.Services.API.Packet.SubPacket.Response;
+using Xenophyte_Lib.Other.Object.List;
+using Xenophyte_Lib.Utility;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -20,7 +20,7 @@ using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SeguraChain_Lib.Instance.Node.Network.Services.API.Utility
+namespace Xenophyte_Lib.Instance.Node.Network.Services.API.Utility
 {
     /// <summary>
     /// Client API Utility, usefull for RPC Wallet Tool, Desktop Wallet tool, Solo mining tool, and other kind of tools who need to communicate with an API of a Node.

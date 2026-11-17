@@ -3,20 +3,20 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
-using SeguraChain_Lib.Blockchain.Block.Function;
-using SeguraChain_Lib.Blockchain.Block.Object.Structure;
-using SeguraChain_Lib.Blockchain.Mining.Enum;
-using SeguraChain_Lib.Blockchain.Mining.Function;
-using SeguraChain_Lib.Blockchain.Mining.Object;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Instance.Node.Network.Services.API.Packet.SubPacket.Response;
-using SeguraChain_Lib.Instance.Node.Network.Services.API.Utility;
-using SeguraChain_Lib.Log;
-using SeguraChain_Lib.Utility;
-using SeguraChain_Solo_Miner.Network.Object;
-using SeguraChain_Solo_Miner.Setting.Object;
+using Xenophyte_Lib.Blockchain.Block.Function;
+using Xenophyte_Lib.Blockchain.Block.Object.Structure;
+using Xenophyte_Lib.Blockchain.Mining.Enum;
+using Xenophyte_Lib.Blockchain.Mining.Function;
+using Xenophyte_Lib.Blockchain.Mining.Object;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Instance.Node.Network.Services.API.Packet.SubPacket.Response;
+using Xenophyte_Lib.Instance.Node.Network.Services.API.Utility;
+using Xenophyte_Lib.Log;
+using Xenophyte_Lib.Utility;
+using Xenophyte_Solo_Miner.Network.Object;
+using Xenophyte_Solo_Miner.Setting.Object;
 
-namespace SeguraChain_Solo_Miner.Network.Function
+namespace Xenophyte_Solo_Miner.Network.Function
 {
     public class ClassMiningNetworkFunction
     {

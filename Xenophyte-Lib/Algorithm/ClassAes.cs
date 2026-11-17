@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Security.Cryptography;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Utility;
 
 
-namespace SeguraChain_Lib.Algorithm
+namespace Xenophyte_Lib.Algorithm
 {
     public class ClassAes
     {

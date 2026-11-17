@@ -1,5 +1,5 @@
 ﻿
-namespace SeguraChain_Desktop_Wallet.InternalForm.Setup.StepForm
+namespace Xenophyte_Desktop_Wallet.InternalForm.Setup.StepForm
 {
     partial class ClassWalletSetupStepFinalForm
     {
@@ -58,7 +58,7 @@ namespace SeguraChain_Desktop_Wallet.InternalForm.Setup.StepForm
             // 
             // pictureBoxBitcoin
             // 
-            this.pictureBoxBitcoin.BackgroundImage = global::SeguraChain_Desktop_Wallet.Properties.Resources.logo_bitcoin;
+            this.pictureBoxBitcoin.BackgroundImage = global::Xenophyte_Desktop_Wallet.Properties.Resources.logo_bitcoin;
             this.pictureBoxBitcoin.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch;
             this.pictureBoxBitcoin.Location = new System.Drawing.Point(228, 79);
             this.pictureBoxBitcoin.Name = "pictureBoxBitcoin";
@@ -68,7 +68,7 @@ namespace SeguraChain_Desktop_Wallet.InternalForm.Setup.StepForm
             // 
             // pictureBoxCurecoin
             // 
-            this.pictureBoxCurecoin.BackgroundImage = global::SeguraChain_Desktop_Wallet.Properties.Resources.logo_curecoin;
+            this.pictureBoxCurecoin.BackgroundImage = global::Xenophyte_Desktop_Wallet.Properties.Resources.logo_curecoin;
             this.pictureBoxCurecoin.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch;
             this.pictureBoxCurecoin.Location = new System.Drawing.Point(228, 271);
             this.pictureBoxCurecoin.Name = "pictureBoxCurecoin";
@@ -78,7 +78,7 @@ namespace SeguraChain_Desktop_Wallet.InternalForm.Setup.StepForm
             // 
             // pictureBoxMonero
             // 
-            this.pictureBoxMonero.BackgroundImage = global::SeguraChain_Desktop_Wallet.Properties.Resources.logo_monero;
+            this.pictureBoxMonero.BackgroundImage = global::Xenophyte_Desktop_Wallet.Properties.Resources.logo_monero;
             this.pictureBoxMonero.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch;
             this.pictureBoxMonero.Location = new System.Drawing.Point(228, 145);
             this.pictureBoxMonero.Name = "pictureBoxMonero";
@@ -88,7 +88,7 @@ namespace SeguraChain_Desktop_Wallet.InternalForm.Setup.StepForm
             // 
             // pictureBoxLitecoin
             // 
-            this.pictureBoxLitecoin.BackgroundImage = global::SeguraChain_Desktop_Wallet.Properties.Resources.logo_litecoin;
+            this.pictureBoxLitecoin.BackgroundImage = global::Xenophyte_Desktop_Wallet.Properties.Resources.logo_litecoin;
             this.pictureBoxLitecoin.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch;
             this.pictureBoxLitecoin.Location = new System.Drawing.Point(228, 208);
             this.pictureBoxLitecoin.Name = "pictureBoxLitecoin";

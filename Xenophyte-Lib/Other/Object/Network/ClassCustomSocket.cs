@@ -1,7 +1,7 @@
 
-using SeguraChain_Lib.Instance.Node.Network.Enum.P2P.Packet;
-using SeguraChain_Lib.TaskManager;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Instance.Node.Network.Enum.P2P.Packet;
+using Xenophyte_Lib.TaskManager;
+using Xenophyte_Lib.Utility;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -10,7 +10,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SeguraChain_Lib.Other.Object.Network
+namespace Xenophyte_Lib.Other.Object.Network
 {
     /// <summary>
     /// Custom TCP socket class.

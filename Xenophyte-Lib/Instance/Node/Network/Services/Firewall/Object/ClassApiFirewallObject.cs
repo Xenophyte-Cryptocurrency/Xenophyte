@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Lib.Instance.Node.Network.Services.Firewall.Object
+﻿namespace Xenophyte_Lib.Instance.Node.Network.Services.Firewall.Object
 {
     public class ClassApiFirewallObject
     {

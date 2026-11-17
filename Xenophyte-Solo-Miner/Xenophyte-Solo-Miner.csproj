@@ -8,7 +8,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
 	<TargetFrameworks>net9.0;net8.0;net7.0;net6.0;net5.0;net48</TargetFrameworks>
-    <RootNamespace>SeguraChain_Solo_Miner</RootNamespace>
+    <RootNamespace>Xenophyte_Solo_Miner</RootNamespace>
     <Configurations>Debug;Release</Configurations>
   </PropertyGroup>
 
@@ -40,7 +40,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SeguraChain-Lib\SeguraChain-Lib.csproj" />
+    <ProjectReference Include="..\Xenophyte-Lib\Xenophyte-Lib.csproj" />
   </ItemGroup>
 
 </Project>

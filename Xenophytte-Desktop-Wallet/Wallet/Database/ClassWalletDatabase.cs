@@ -1,14 +1,14 @@
 ﻿using Newtonsoft.Json;
-using SeguraChain_Desktop_Wallet.Common;
-using SeguraChain_Desktop_Wallet.Settings.Enum;
-using SeguraChain_Desktop_Wallet.Sync.Object;
-using SeguraChain_Desktop_Wallet.Wallet.Function;
-using SeguraChain_Desktop_Wallet.Wallet.Object;
-using SeguraChain_Lib.Blockchain.Database;
-using SeguraChain_Lib.Blockchain.Transaction.Utility;
-using SeguraChain_Lib.Log;
-using SeguraChain_Lib.Other.Object.List;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Desktop_Wallet.Common;
+using Xenophyte_Desktop_Wallet.Settings.Enum;
+using Xenophyte_Desktop_Wallet.Sync.Object;
+using Xenophyte_Desktop_Wallet.Wallet.Function;
+using Xenophyte_Desktop_Wallet.Wallet.Object;
+using Xenophyte_Lib.Blockchain.Database;
+using Xenophyte_Lib.Blockchain.Transaction.Utility;
+using Xenophyte_Lib.Log;
+using Xenophyte_Lib.Other.Object.List;
+using Xenophyte_Lib.Utility;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -19,7 +19,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 
-namespace SeguraChain_Desktop_Wallet.Wallet.Database
+namespace Xenophyte_Desktop_Wallet.Wallet.Database
 {
     public class ClassWalletDatabase
     {

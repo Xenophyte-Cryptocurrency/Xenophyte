@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Lib.Instance.IoCache.Request.Packet.Send.Object
+﻿namespace Xenophyte_Lib.Instance.IoCache.Request.Packet.Send.Object
 {
     public class ClassPacketIoCachePushBlockResponse
     {

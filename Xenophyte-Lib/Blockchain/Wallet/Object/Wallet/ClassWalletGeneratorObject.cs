@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Lib.Blockchain.Wallet.Object.Wallet
+﻿namespace Xenophyte_Lib.Blockchain.Wallet.Object.Wallet
 {
     public class ClassWalletGeneratorObject
     {

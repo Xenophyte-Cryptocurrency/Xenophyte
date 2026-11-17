@@ -1,18 +1,18 @@
 ﻿using Newtonsoft.Json;
-using SeguraChain_Lib.Algorithm;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Instance.Node.Network.Services.API.Client.Enum;
-using SeguraChain_Lib.Other.Object.List;
-using SeguraChain_Lib.Utility;
-using SeguraChain_RPC_Wallet.API.Service.Packet.Enum;
-using SeguraChain_RPC_Wallet.API.Service.Packet.Object;
-using SeguraChain_RPC_Wallet.API.Service.Packet.Object.Request;
-using SeguraChain_RPC_Wallet.API.Service.Packet.Object.Response.GET;
-using SeguraChain_RPC_Wallet.API.Service.Packet.Object.Response.POST;
-using SeguraChain_RPC_Wallet.Config;
-using SeguraChain_RPC_Wallet.Database;
-using SeguraChain_RPC_Wallet.Database.Wallet;
-using SeguraChain_RPC_Wallet.Node.Client;
+using Xenophyte_Lib.Algorithm;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Instance.Node.Network.Services.API.Client.Enum;
+using Xenophyte_Lib.Other.Object.List;
+using Xenophyte_Lib.Utility;
+using Xenophyte_RPC_Wallet.API.Service.Packet.Enum;
+using Xenophyte_RPC_Wallet.API.Service.Packet.Object;
+using Xenophyte_RPC_Wallet.API.Service.Packet.Object.Request;
+using Xenophyte_RPC_Wallet.API.Service.Packet.Object.Response.GET;
+using Xenophyte_RPC_Wallet.API.Service.Packet.Object.Response.POST;
+using Xenophyte_RPC_Wallet.Config;
+using Xenophyte_RPC_Wallet.Database;
+using Xenophyte_RPC_Wallet.Database.Wallet;
+using Xenophyte_RPC_Wallet.Node.Client;
 using System;
 using System.Diagnostics;
 using System.Linq;
@@ -20,10 +20,10 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using ClassRpcApiGetWalletStats = SeguraChain_RPC_Wallet.API.Service.Packet.Object.Response.GET.ClassRpcApiGetWalletStats;
+using ClassRpcApiGetWalletStats = Xenophyte_RPC_Wallet.API.Service.Packet.Object.Response.GET.ClassRpcApiGetWalletStats;
 
 
-namespace SeguraChain_RPC_Wallet.API.Service.Client
+namespace Xenophyte_RPC_Wallet.API.Service.Client
 {
     public class ClassRpcApiClient
     {

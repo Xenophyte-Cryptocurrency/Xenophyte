@@ -1,8 +1,8 @@
-﻿using SeguraChain_Lib.Utility;
+﻿using Xenophyte_Lib.Utility;
 using System.Collections.Generic;
 using System.Threading;
 
-namespace SeguraChain_RPC_Wallet.API.Service.Client.Sub
+namespace Xenophyte_RPC_Wallet.API.Service.Client.Sub
 {
     public class ClassRpcClientObject
     {

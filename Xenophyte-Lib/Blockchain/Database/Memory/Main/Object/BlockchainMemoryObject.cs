@@ -1,9 +1,9 @@
 ﻿using System.Collections.Concurrent;
-using SeguraChain_Lib.Blockchain.Block.Object.Structure;
-using SeguraChain_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Disk.Object;
-using SeguraChain_Lib.Blockchain.Database.Memory.Main.Enum;
+using Xenophyte_Lib.Blockchain.Block.Object.Structure;
+using Xenophyte_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Disk.Object;
+using Xenophyte_Lib.Blockchain.Database.Memory.Main.Enum;
 
-namespace SeguraChain_Lib.Blockchain.Database.Memory.Main.Object
+namespace Xenophyte_Lib.Blockchain.Database.Memory.Main.Object
 {
     public class BlockchainMemoryObject
     {

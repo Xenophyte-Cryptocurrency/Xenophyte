@@ -3,20 +3,20 @@ using System.Collections.Generic;
 using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
-using SeguraChain_Lib.Blockchain.Block.Object.Structure;
-using SeguraChain_Lib.Blockchain.Mining.Function;
-using SeguraChain_Lib.Blockchain.Mining.Object;
-using SeguraChain_Lib.Instance.Node.Setting.Object;
-using SeguraChain_Lib.Log;
-using SeguraChain_Lib.Other.Object.SHA3;
-using SeguraChain_Lib.TaskManager;
-using SeguraChain_Lib.Utility;
-using SeguraChain_Solo_Miner.Network.Function;
-using SeguraChain_Solo_Miner.Network.Object;
-using SeguraChain_Solo_Miner.Setting.Enum;
-using SeguraChain_Solo_Miner.Setting.Object;
+using Xenophyte_Lib.Blockchain.Block.Object.Structure;
+using Xenophyte_Lib.Blockchain.Mining.Function;
+using Xenophyte_Lib.Blockchain.Mining.Object;
+using Xenophyte_Lib.Instance.Node.Setting.Object;
+using Xenophyte_Lib.Log;
+using Xenophyte_Lib.Other.Object.SHA3;
+using Xenophyte_Lib.TaskManager;
+using Xenophyte_Lib.Utility;
+using Xenophyte_Solo_Miner.Network.Function;
+using Xenophyte_Solo_Miner.Network.Object;
+using Xenophyte_Solo_Miner.Setting.Enum;
+using Xenophyte_Solo_Miner.Setting.Object;
 
-namespace SeguraChain_Solo_Miner.Mining
+namespace Xenophyte_Solo_Miner.Mining
 {
     public class ClassSoloMiningInstance
     {

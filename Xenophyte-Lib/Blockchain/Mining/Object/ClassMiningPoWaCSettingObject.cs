@@ -1,10 +1,10 @@
 
 using System.Collections.Generic;
-using SeguraChain_Lib.Algorithm;
-using SeguraChain_Lib.Blockchain.Mining.Enum;
-using SeguraChain_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Algorithm;
+using Xenophyte_Lib.Blockchain.Mining.Enum;
+using Xenophyte_Lib.Blockchain.Setting;
 
-namespace SeguraChain_Lib.Blockchain.Mining.Object
+namespace Xenophyte_Lib.Blockchain.Mining.Object
 {
     /// <summary>
     /// This setting can be updated with a sovereign update.

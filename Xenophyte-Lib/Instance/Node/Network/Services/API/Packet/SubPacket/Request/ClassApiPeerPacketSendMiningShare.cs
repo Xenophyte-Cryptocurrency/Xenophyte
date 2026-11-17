@@ -1,6 +1,6 @@
-﻿using SeguraChain_Lib.Blockchain.Mining.Object;
+﻿using Xenophyte_Lib.Blockchain.Mining.Object;
 
-namespace SeguraChain_Lib.Instance.Node.Network.Services.API.Packet.SubPacket.Request
+namespace Xenophyte_Lib.Instance.Node.Network.Services.API.Packet.SubPacket.Request
 {
     public class ClassApiPeerPacketSendMiningShare
     {

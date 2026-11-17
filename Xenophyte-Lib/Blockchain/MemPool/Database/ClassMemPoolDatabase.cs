@@ -8,19 +8,19 @@ using System.Threading;
 using System.Threading.Tasks;
 using LZ4;
 using Newtonsoft.Json;
-using SeguraChain_Lib.Algorithm;
-using SeguraChain_Lib.Blockchain.Database.DatabaseSetting;
-using SeguraChain_Lib.Blockchain.MemPool.Object;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Blockchain.Transaction.Enum;
-using SeguraChain_Lib.Blockchain.Transaction.Object;
-using SeguraChain_Lib.Blockchain.Transaction.Utility;
-using SeguraChain_Lib.Log;
-using SeguraChain_Lib.Other.Object.List;
+using Xenophyte_Lib.Algorithm;
+using Xenophyte_Lib.Blockchain.Database.DatabaseSetting;
+using Xenophyte_Lib.Blockchain.MemPool.Object;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Blockchain.Transaction.Enum;
+using Xenophyte_Lib.Blockchain.Transaction.Object;
+using Xenophyte_Lib.Blockchain.Transaction.Utility;
+using Xenophyte_Lib.Log;
+using Xenophyte_Lib.Other.Object.List;
 
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Utility;
 
-namespace SeguraChain_Lib.Blockchain.MemPool.Database
+namespace Xenophyte_Lib.Blockchain.MemPool.Database
 {
     // This class is dedicated to TX and Mining PoW Share to valid with other Peers before to apply them.
     public class ClassMemPoolDatabase

@@ -1,16 +1,16 @@
-using SeguraChain_Lib.Instance.Node.Setting.Object;
-using SeguraChain_Lib.Log;
-using SeguraChain_Lib.Other.Object.List;
-using SeguraChain_Lib.Other.Object.Network;
-using SeguraChain_Lib.TaskManager.Object;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Instance.Node.Setting.Object;
+using Xenophyte_Lib.Log;
+using Xenophyte_Lib.Other.Object.List;
+using Xenophyte_Lib.Other.Object.Network;
+using Xenophyte_Lib.TaskManager.Object;
+using Xenophyte_Lib.Utility;
 using System;
 using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SeguraChain_Lib.TaskManager
+namespace Xenophyte_Lib.TaskManager
 {
     public static class TaskManager
     {

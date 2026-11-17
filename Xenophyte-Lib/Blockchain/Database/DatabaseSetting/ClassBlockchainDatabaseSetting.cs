@@ -1,12 +1,12 @@
 ﻿using System;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
-using SeguraChain_Lib.Blockchain.Database.Memory.Main.Enum;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Log;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Blockchain.Database.Memory.Main.Enum;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Log;
+using Xenophyte_Lib.Utility;
 
-namespace SeguraChain_Lib.Blockchain.Database.DatabaseSetting
+namespace Xenophyte_Lib.Blockchain.Database.DatabaseSetting
 {
     public class ClassBlockchainDatabaseDefaultSetting
     {

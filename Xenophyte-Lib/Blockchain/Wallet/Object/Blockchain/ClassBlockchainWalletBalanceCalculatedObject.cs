@@ -1,6 +1,6 @@
 ﻿using System.Numerics;
 
-namespace SeguraChain_Lib.Blockchain.Wallet.Object.Blockchain
+namespace Xenophyte_Lib.Blockchain.Wallet.Object.Blockchain
 {
     public class ClassBlockchainWalletBalanceCalculatedObject
     {

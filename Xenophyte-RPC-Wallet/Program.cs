@@ -1,14 +1,14 @@
-﻿using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_RPC_Wallet.API.Service.Server;
-using SeguraChain_RPC_Wallet.Command;
-using SeguraChain_RPC_Wallet.Config;
-using SeguraChain_RPC_Wallet.Config.Enum;
-using SeguraChain_RPC_Wallet.Database;
-using SeguraChain_RPC_Wallet.Node.Client;
-using SeguraChain_RPC_Wallet.RpcTask;
+﻿using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_RPC_Wallet.API.Service.Server;
+using Xenophyte_RPC_Wallet.Command;
+using Xenophyte_RPC_Wallet.Config;
+using Xenophyte_RPC_Wallet.Config.Enum;
+using Xenophyte_RPC_Wallet.Database;
+using Xenophyte_RPC_Wallet.Node.Client;
+using Xenophyte_RPC_Wallet.RpcTask;
 using System;
 
-namespace SeguraChain_RPC_Wallet
+namespace Xenophyte_RPC_Wallet
 {
     class Program
     {

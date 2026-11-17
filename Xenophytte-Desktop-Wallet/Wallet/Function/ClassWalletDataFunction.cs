@@ -4,21 +4,21 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using SeguraChain_Desktop_Wallet.Common;
-using SeguraChain_Desktop_Wallet.Settings.Enum;
-using SeguraChain_Desktop_Wallet.Wallet.Function.Enum;
-using SeguraChain_Desktop_Wallet.Wallet.Object;
-using SeguraChain_Lib.Algorithm;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Blockchain.Wallet.Function;
-using SeguraChain_Lib.Blockchain.Wallet.Object.Wallet;
-using SeguraChain_Lib.Other.Object.SHA3;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Desktop_Wallet.Common;
+using Xenophyte_Desktop_Wallet.Settings.Enum;
+using Xenophyte_Desktop_Wallet.Wallet.Function.Enum;
+using Xenophyte_Desktop_Wallet.Wallet.Object;
+using Xenophyte_Lib.Algorithm;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Blockchain.Wallet.Function;
+using Xenophyte_Lib.Blockchain.Wallet.Object.Wallet;
+using Xenophyte_Lib.Other.Object.SHA3;
+using Xenophyte_Lib.Utility;
 using ZXing;
 using ZXing.Common;
 using ZXing.QrCode;
 
-namespace SeguraChain_Desktop_Wallet.Wallet.Function
+namespace Xenophyte_Desktop_Wallet.Wallet.Function
 {
     public class ClassWalletDataFunction
     {

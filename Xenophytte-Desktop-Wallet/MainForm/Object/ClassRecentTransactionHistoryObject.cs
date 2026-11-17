@@ -1,7 +1,7 @@
 ﻿using System.Drawing;
-using SeguraChain_Lib.Blockchain.Transaction.Enum;
+using Xenophyte_Lib.Blockchain.Transaction.Enum;
 
-namespace SeguraChain_Desktop_Wallet.MainForm.Object
+namespace Xenophyte_Desktop_Wallet.MainForm.Object
 {
     public class ClassRecentTransactionHistoryObject
     {

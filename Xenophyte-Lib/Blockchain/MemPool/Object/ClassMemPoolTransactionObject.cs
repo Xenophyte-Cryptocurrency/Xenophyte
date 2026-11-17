@@ -1,6 +1,6 @@
-﻿using SeguraChain_Lib.Blockchain.Transaction.Object;
+﻿using Xenophyte_Lib.Blockchain.Transaction.Object;
 
-namespace SeguraChain_Lib.Blockchain.MemPool.Object
+namespace Xenophyte_Lib.Blockchain.MemPool.Object
 {
     public class ClassMemPoolTransactionObject
     {

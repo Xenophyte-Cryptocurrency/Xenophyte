@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Desktop_Wallet.InternalForm.SendTransaction
+﻿namespace Xenophyte_Desktop_Wallet.InternalForm.SendTransaction
 {
     partial class ClassWalletSendTransactionPassphraseForm
     {

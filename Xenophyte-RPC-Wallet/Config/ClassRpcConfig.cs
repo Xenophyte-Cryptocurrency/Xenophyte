@@ -1,11 +1,11 @@
 ﻿using Newtonsoft.Json;
-using SeguraChain_Lib.Algorithm;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Algorithm;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Utility;
 using System;
 using System.Collections.Generic;
 
-namespace SeguraChain_RPC_Wallet.Config
+namespace Xenophyte_RPC_Wallet.Config
 {
     public class ClassRpcConfigPath
     {

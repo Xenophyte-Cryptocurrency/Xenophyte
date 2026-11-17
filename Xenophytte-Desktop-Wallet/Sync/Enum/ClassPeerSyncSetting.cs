@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Desktop_Wallet.Sync.Enum
+﻿namespace Xenophyte_Desktop_Wallet.Sync.Enum
 {
     public class ClassPeerSyncSetting
     {

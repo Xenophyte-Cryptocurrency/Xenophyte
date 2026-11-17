@@ -1,14 +1,14 @@
 ﻿using Newtonsoft.Json;
-using SeguraChain_IO_Cache_Network_System.Config;
-using SeguraChain_Lib.Blockchain.Block.Object.Structure;
-using SeguraChain_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Main;
-using SeguraChain_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Network.Request.Config;
-using SeguraChain_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Network.Request.Packet.Recv;
-using SeguraChain_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Network.Request.Packet.Recv.Enum;
-using SeguraChain_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Network.Request.Packet.Recv.Object;
-using SeguraChain_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Network.Request.Packet.Send.Object;
-using SeguraChain_Lib.Other.Object.List;
-using SeguraChain_Lib.Utility;
+using Xenophyte_IO_Cache_Network_System.Config;
+using Xenophyte_Lib.Blockchain.Block.Object.Structure;
+using Xenophyte_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Main;
+using Xenophyte_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Network.Request.Config;
+using Xenophyte_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Network.Request.Packet.Recv;
+using Xenophyte_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Network.Request.Packet.Recv.Enum;
+using Xenophyte_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Network.Request.Packet.Recv.Object;
+using Xenophyte_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Network.Request.Packet.Send.Object;
+using Xenophyte_Lib.Other.Object.List;
+using Xenophyte_Lib.Utility;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -17,7 +17,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SeguraChain_IO_Cache_Network_System.Client
+namespace Xenophyte_IO_Cache_Network_System.Client
 {
     public class ClassIoCacheClientObject
     {

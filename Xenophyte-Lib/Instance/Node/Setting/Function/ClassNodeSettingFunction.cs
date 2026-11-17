@@ -2,15 +2,15 @@
 using System.IO;
 using System.Net;
 using Newtonsoft.Json;
-using SeguraChain_Lib.Blockchain.Database.DatabaseSetting;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Instance.Node.Network.Database.Manager;
-using SeguraChain_Lib.Instance.Node.Network.Services.Firewall.Enum;
-using SeguraChain_Lib.Instance.Node.Setting.Object;
-using SeguraChain_Lib.Log;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Blockchain.Database.DatabaseSetting;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Instance.Node.Network.Database.Manager;
+using Xenophyte_Lib.Instance.Node.Network.Services.Firewall.Enum;
+using Xenophyte_Lib.Instance.Node.Setting.Object;
+using Xenophyte_Lib.Log;
+using Xenophyte_Lib.Utility;
 
-namespace SeguraChain_Lib.Instance.Node.Setting.Function
+namespace Xenophyte_Lib.Instance.Node.Setting.Function
 {
     public class ClassPeerNodeSettingFunction
     {

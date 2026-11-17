@@ -1,5 +1,5 @@
 ﻿
-namespace SeguraChain_RPC_Wallet.API.Service.Packet.Enum
+namespace Xenophyte_RPC_Wallet.API.Service.Packet.Enum
 {
     public class ClassRpcApiGetPacketEnum
     {

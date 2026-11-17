@@ -6,13 +6,13 @@ using System.Threading.Tasks;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Math;
 using Org.BouncyCastle.Security;
-using SeguraChain_Lib.Algorithm;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Blockchain.Wallet.Function;
-using SeguraChain_Lib.TaskManager;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Algorithm;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Blockchain.Wallet.Function;
+using Xenophyte_Lib.TaskManager;
+using Xenophyte_Lib.Utility;
 
-namespace SeguraChain_Lib.Instance.Node.Network.Database.Object
+namespace Xenophyte_Lib.Instance.Node.Network.Database.Object
 {
     public class ClassPeerCryptoStreamObject
     {

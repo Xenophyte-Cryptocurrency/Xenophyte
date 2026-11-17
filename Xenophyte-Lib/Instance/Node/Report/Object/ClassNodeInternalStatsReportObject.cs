@@ -1,5 +1,5 @@
 ﻿
-namespace SeguraChain_Lib.Instance.Node.Report.Object
+namespace Xenophyte_Lib.Instance.Node.Report.Object
 {
     public class ClassNodeInternalStatsReportObject
     {

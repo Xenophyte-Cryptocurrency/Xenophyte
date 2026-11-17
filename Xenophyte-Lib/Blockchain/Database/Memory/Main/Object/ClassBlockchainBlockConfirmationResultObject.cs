@@ -1,7 +1,7 @@
-﻿using SeguraChain_Lib.Other.Object.List;
+﻿using Xenophyte_Lib.Other.Object.List;
 using System.Collections.Generic;
 
-namespace SeguraChain_Lib.Blockchain.Database.Memory.Main.Object
+namespace Xenophyte_Lib.Blockchain.Database.Memory.Main.Object
 {
     public class ClassBlockchainBlockConfirmationResultObject
     {

@@ -2,13 +2,13 @@
 using System.IO;
 using System.Net;
 using Newtonsoft.Json;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Log;
-using SeguraChain_Lib.Utility;
-using SeguraChain_Solo_Miner.Setting.Enum;
-using SeguraChain_Solo_Miner.Setting.Object;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Log;
+using Xenophyte_Lib.Utility;
+using Xenophyte_Solo_Miner.Setting.Enum;
+using Xenophyte_Solo_Miner.Setting.Object;
 
-namespace SeguraChain_Solo_Miner.Setting.Function
+namespace Xenophyte_Solo_Miner.Setting.Function
 {
     public class ClassSoloMinerSettingFunction
     {

@@ -1,8 +1,8 @@
-using SeguraChain_Lib.Instance.Node.Network.Database;
-using SeguraChain_Lib.Instance.Node.Network.Services.API.Client;
-using SeguraChain_Lib.Instance.Node.Setting.Object;
-using SeguraChain_Lib.Log;
-using SeguraChain_Lib.Other.Object.Network;
+using Xenophyte_Lib.Instance.Node.Network.Database;
+using Xenophyte_Lib.Instance.Node.Network.Services.API.Client;
+using Xenophyte_Lib.Instance.Node.Setting.Object;
+using Xenophyte_Lib.Log;
+using Xenophyte_Lib.Other.Object.Network;
 using System;
 using System.IO;
 using System.Net;
@@ -10,7 +10,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SeguraChain_Lib.Instance.Node.Network.Services.API.Server.Service
+namespace Xenophyte_Lib.Instance.Node.Network.Services.API.Server.Service
 {
     public class ClassPeerApiServerServiceObject : IDisposable
     {

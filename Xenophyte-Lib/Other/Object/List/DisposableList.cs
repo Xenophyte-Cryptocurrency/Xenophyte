@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using SeguraChain_Lib.Blockchain.Block.Object.Structure;
+using Xenophyte_Lib.Blockchain.Block.Object.Structure;
 
-namespace SeguraChain_Lib.Other.Object.List
+namespace Xenophyte_Lib.Other.Object.List
 {
     /// <summary>
     /// Extension of the generic List object, auto clean up data, sort, and others options.

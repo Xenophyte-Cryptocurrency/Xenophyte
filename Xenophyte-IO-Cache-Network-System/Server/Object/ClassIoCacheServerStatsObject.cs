@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_IO_Cache_Network_System.Server.Object
+﻿namespace Xenophyte_IO_Cache_Network_System.Server.Object
 {
     public  class ClassIoCacheServerStatsObject
     {

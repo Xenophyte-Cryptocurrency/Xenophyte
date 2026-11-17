@@ -4,11 +4,11 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Numerics;
-using SeguraChain_Desktop_Wallet.Enum;
-using SeguraChain_Desktop_Wallet.Settings.Enum;
-using SeguraChain_Lib.Blockchain.Block.Object.Structure;
+using Xenophyte_Desktop_Wallet.Enum;
+using Xenophyte_Desktop_Wallet.Settings.Enum;
+using Xenophyte_Lib.Blockchain.Block.Object.Structure;
 
-namespace SeguraChain_Desktop_Wallet.MainForm.Object
+namespace Xenophyte_Desktop_Wallet.MainForm.Object
 {
     /// <summary>
     /// Transaction history object constantly updated to paint.

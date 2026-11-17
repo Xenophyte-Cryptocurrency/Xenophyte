@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Lib.Blockchain.Block.Enum
+﻿namespace Xenophyte_Lib.Blockchain.Block.Enum
 {
     public enum ClassBlockEnumMiningShareVoteStatus
     {

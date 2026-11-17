@@ -1,5 +1,5 @@
 ﻿
-namespace SeguraChain_Lib.Instance.IoCache.Request.Packet.Send.Enum
+namespace Xenophyte_Lib.Instance.IoCache.Request.Packet.Send.Enum
 {
     public enum ClassIoPacketSendEnumType
     {

@@ -1,5 +1,5 @@
 ﻿
-namespace SeguraChain_Desktop_Wallet.InternalForm.TransactionHistory
+namespace Xenophyte_Desktop_Wallet.InternalForm.TransactionHistory
 {
     partial class ClassWalletTransactionHistoryInformationsLoadingForm
     {

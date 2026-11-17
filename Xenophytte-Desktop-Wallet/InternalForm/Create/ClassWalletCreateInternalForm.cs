@@ -3,20 +3,20 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Printing;
 using System.Windows.Forms;
-using SeguraChain_Desktop_Wallet.Common;
-using SeguraChain_Desktop_Wallet.Components;
-using SeguraChain_Desktop_Wallet.InternalForm.Create.Enum;
-using SeguraChain_Desktop_Wallet.Language.Enum;
-using SeguraChain_Desktop_Wallet.Properties;
-using SeguraChain_Desktop_Wallet.Wallet.Function;
-using SeguraChain_Desktop_Wallet.Wallet.Function.Enum;
-using SeguraChain_Desktop_Wallet.Language.Object;
-using SeguraChain_Desktop_Wallet.Settings.Enum;
-using SeguraChain_Desktop_Wallet.Wallet.Object;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Desktop_Wallet.Common;
+using Xenophyte_Desktop_Wallet.Components;
+using Xenophyte_Desktop_Wallet.InternalForm.Create.Enum;
+using Xenophyte_Desktop_Wallet.Language.Enum;
+using Xenophyte_Desktop_Wallet.Properties;
+using Xenophyte_Desktop_Wallet.Wallet.Function;
+using Xenophyte_Desktop_Wallet.Wallet.Function.Enum;
+using Xenophyte_Desktop_Wallet.Language.Object;
+using Xenophyte_Desktop_Wallet.Settings.Enum;
+using Xenophyte_Desktop_Wallet.Wallet.Object;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Utility;
 
-namespace SeguraChain_Desktop_Wallet.InternalForm.Create
+namespace Xenophyte_Desktop_Wallet.InternalForm.Create
 {
     public partial class ClassWalletCreateInternalForm : Form
     {

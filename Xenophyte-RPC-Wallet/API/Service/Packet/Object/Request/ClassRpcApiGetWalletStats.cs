@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_RPC_Wallet.API.Service.Packet.Object.Request
+﻿namespace Xenophyte_RPC_Wallet.API.Service.Packet.Object.Request
 {
     public class ClassRpcApiGetWalletStats
     {

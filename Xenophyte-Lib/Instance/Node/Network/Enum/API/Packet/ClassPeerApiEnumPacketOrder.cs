@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Lib.Instance.Node.Network.Enum.API.Packet
+﻿namespace Xenophyte_Lib.Instance.Node.Network.Enum.API.Packet
 {
     public enum ClassPeerApiPostPacketSendEnum
     {

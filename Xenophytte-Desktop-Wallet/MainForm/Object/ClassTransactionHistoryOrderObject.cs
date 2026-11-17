@@ -1,6 +1,6 @@
 ﻿using System.Drawing;
 
-namespace SeguraChain_Desktop_Wallet.MainForm.Object
+namespace Xenophyte_Desktop_Wallet.MainForm.Object
 {
     public class ClassTransactionHistoryOrderObject
     {

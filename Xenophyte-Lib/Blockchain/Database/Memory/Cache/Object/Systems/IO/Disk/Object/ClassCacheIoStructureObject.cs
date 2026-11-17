@@ -1,9 +1,9 @@
-﻿using SeguraChain_Lib.Blockchain.Block.Function;
-using SeguraChain_Lib.Blockchain.Block.Object.Structure;
+﻿using Xenophyte_Lib.Blockchain.Block.Function;
+using Xenophyte_Lib.Blockchain.Block.Object.Structure;
 using System.Runtime.CompilerServices;
 using System.Threading;
 
-namespace SeguraChain_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Disk.Object
+namespace Xenophyte_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Disk.Object
 {
     public class ClassCacheIoStructureObject
     {

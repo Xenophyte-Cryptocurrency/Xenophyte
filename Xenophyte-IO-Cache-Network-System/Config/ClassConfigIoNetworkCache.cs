@@ -1,6 +1,6 @@
-﻿using SeguraChain_Lib.Blockchain.Database.DatabaseSetting;
+﻿using Xenophyte_Lib.Blockchain.Database.DatabaseSetting;
 
-namespace SeguraChain_IO_Cache_Network_System.Config
+namespace Xenophyte_IO_Cache_Network_System.Config
 {
     public class ClassConfigIoNetworkDefaultSetting
     {

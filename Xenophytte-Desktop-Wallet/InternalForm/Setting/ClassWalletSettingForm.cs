@@ -1,16 +1,16 @@
 ﻿using Newtonsoft.Json;
-using SeguraChain_Desktop_Wallet.Common;
-using SeguraChain_Desktop_Wallet.Language.Enum;
-using SeguraChain_Desktop_Wallet.Language.Object;
-using SeguraChain_Desktop_Wallet.Settings.Enum;
-using SeguraChain_Desktop_Wallet.Settings.Object;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Desktop_Wallet.Common;
+using Xenophyte_Desktop_Wallet.Language.Enum;
+using Xenophyte_Desktop_Wallet.Language.Object;
+using Xenophyte_Desktop_Wallet.Settings.Enum;
+using Xenophyte_Desktop_Wallet.Settings.Object;
+using Xenophyte_Lib.Utility;
 using System;
 using System.IO;
 using System.Net;
 using System.Windows.Forms;
 
-namespace SeguraChain_Desktop_Wallet.InternalForm.Setting
+namespace Xenophyte_Desktop_Wallet.InternalForm.Setting
 {
     public partial class ClassWalletSettingForm : Form
     {

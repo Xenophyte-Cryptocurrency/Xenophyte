@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Lib.Instance.Node.Network.Services.API.Client.Enum
+﻿namespace Xenophyte_Lib.Instance.Node.Network.Services.API.Client.Enum
 {
     public class ClassPeerApiEnumHttpPostRequestSyntax
     {

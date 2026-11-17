@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Lib.Instance.Node.Network.Services.API.Packet.Explorer
+﻿namespace Xenophyte_Lib.Instance.Node.Network.Services.API.Packet.Explorer
 {
     public class ClassApiBlockchainExplorerHtmlContent
     {

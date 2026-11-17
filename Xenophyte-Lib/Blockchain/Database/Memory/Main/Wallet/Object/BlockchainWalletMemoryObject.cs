@@ -1,10 +1,10 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using SeguraChain_Lib.Blockchain.Wallet.Object.Blockchain;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Blockchain.Wallet.Object.Blockchain;
+using Xenophyte_Lib.Utility;
 
-namespace SeguraChain_Lib.Blockchain.Database.Memory.Main.Wallet.Object
+namespace Xenophyte_Lib.Blockchain.Database.Memory.Main.Wallet.Object
 {
     public class BlockchainWalletMemoryObject
     {

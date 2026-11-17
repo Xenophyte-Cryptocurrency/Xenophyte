@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_RPC_Wallet.Database.Enum
+﻿namespace Xenophyte_RPC_Wallet.Database.Enum
 {
     public enum ClassWalletCreateMethodEnum
     {

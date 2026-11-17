@@ -1,12 +1,12 @@
-﻿using SeguraChain_Lib.Blockchain.Block.Object.Structure;
-using SeguraChain_Lib.Blockchain.Transaction.Object;
-using SeguraChain_Lib.Instance.Node.Network.Services.API.Utility;
-using SeguraChain_Lib.Other.Object.List;
-using SeguraChain_Lib.Utility;
-using SeguraChain_RPC_Wallet.API.Service.Packet.Object.Request;
-using SeguraChain_RPC_Wallet.API.Service.Packet.Object.Response.POST;
-using SeguraChain_RPC_Wallet.Config;
-using SeguraChain_RPC_Wallet.Database.Object;
+﻿using Xenophyte_Lib.Blockchain.Block.Object.Structure;
+using Xenophyte_Lib.Blockchain.Transaction.Object;
+using Xenophyte_Lib.Instance.Node.Network.Services.API.Utility;
+using Xenophyte_Lib.Other.Object.List;
+using Xenophyte_Lib.Utility;
+using Xenophyte_RPC_Wallet.API.Service.Packet.Object.Request;
+using Xenophyte_RPC_Wallet.API.Service.Packet.Object.Response.POST;
+using Xenophyte_RPC_Wallet.Config;
+using Xenophyte_RPC_Wallet.Database.Object;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -15,7 +15,7 @@ using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SeguraChain_RPC_Wallet.Database.Wallet
+namespace Xenophyte_RPC_Wallet.Database.Wallet
 {
     public class ClassWalletData
     {

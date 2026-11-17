@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.ClientConnect.Enum
+﻿namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.ClientConnect.Enum
 {
     public enum ClassPeerNetworkClientSyncEnum
     {

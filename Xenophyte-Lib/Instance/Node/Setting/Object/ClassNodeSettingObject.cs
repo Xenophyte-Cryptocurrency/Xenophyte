@@ -1,9 +1,9 @@
-﻿using SeguraChain_Lib.Blockchain.Database.DatabaseSetting;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Utility;
+﻿using Xenophyte_Lib.Blockchain.Database.DatabaseSetting;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Utility;
 using System;
 
-namespace SeguraChain_Lib.Instance.Node.Setting.Object
+namespace Xenophyte_Lib.Instance.Node.Setting.Object
 {
     public class ClassNodeSettingObject
     {

@@ -1,6 +1,6 @@
-﻿using SeguraChain_Lib.Instance.IoCache.Request.Packet.Recv.Enum;
+﻿using Xenophyte_Lib.Instance.IoCache.Request.Packet.Recv.Enum;
 
-namespace SeguraChain_Lib.Instance.IoCache.Request.Packet.Recv
+namespace Xenophyte_Lib.Instance.IoCache.Request.Packet.Recv
 {
     public class ClassIoCachePacketRecv
     {

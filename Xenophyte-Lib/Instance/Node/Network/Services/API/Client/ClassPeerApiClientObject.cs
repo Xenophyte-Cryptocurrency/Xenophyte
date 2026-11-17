@@ -7,36 +7,36 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using SeguraChain_Lib.Blockchain.Block.Enum;
-using SeguraChain_Lib.Blockchain.Block.Function;
-using SeguraChain_Lib.Blockchain.Block.Object.Structure;
-using SeguraChain_Lib.Blockchain.Database;
-using SeguraChain_Lib.Blockchain.MemPool.Database;
-using SeguraChain_Lib.Blockchain.Mining.Enum;
-using SeguraChain_Lib.Blockchain.Mining.Function;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Blockchain.Stats.Function;
-using SeguraChain_Lib.Blockchain.Transaction.Enum;
-using SeguraChain_Lib.Blockchain.Transaction.Object;
-using SeguraChain_Lib.Blockchain.Transaction.Utility;
-using SeguraChain_Lib.Instance.Node.Network.Database;
-using SeguraChain_Lib.Instance.Node.Network.Enum.API.Packet;
-using SeguraChain_Lib.Instance.Node.Network.Enum.P2P.Packet;
-using SeguraChain_Lib.Instance.Node.Network.Services.API.Client.Enum;
-using SeguraChain_Lib.Instance.Node.Network.Services.API.Packet;
-using SeguraChain_Lib.Instance.Node.Network.Services.API.Packet.Explorer;
-using SeguraChain_Lib.Instance.Node.Network.Services.API.Packet.SubPacket.Request;
-using SeguraChain_Lib.Instance.Node.Network.Services.API.Packet.SubPacket.Response;
-using SeguraChain_Lib.Instance.Node.Network.Services.Firewall.Manager;
-using SeguraChain_Lib.Instance.Node.Network.Services.P2P.Broadcast;
-using SeguraChain_Lib.Instance.Node.Setting.Object;
-using SeguraChain_Lib.Log;
-using SeguraChain_Lib.Other.Object.List;
-using SeguraChain_Lib.Other.Object.Network;
-using SeguraChain_Lib.Utility;
-using static SeguraChain_Lib.Other.Object.Network.ClassCustomSocket;
+using Xenophyte_Lib.Blockchain.Block.Enum;
+using Xenophyte_Lib.Blockchain.Block.Function;
+using Xenophyte_Lib.Blockchain.Block.Object.Structure;
+using Xenophyte_Lib.Blockchain.Database;
+using Xenophyte_Lib.Blockchain.MemPool.Database;
+using Xenophyte_Lib.Blockchain.Mining.Enum;
+using Xenophyte_Lib.Blockchain.Mining.Function;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Blockchain.Stats.Function;
+using Xenophyte_Lib.Blockchain.Transaction.Enum;
+using Xenophyte_Lib.Blockchain.Transaction.Object;
+using Xenophyte_Lib.Blockchain.Transaction.Utility;
+using Xenophyte_Lib.Instance.Node.Network.Database;
+using Xenophyte_Lib.Instance.Node.Network.Enum.API.Packet;
+using Xenophyte_Lib.Instance.Node.Network.Enum.P2P.Packet;
+using Xenophyte_Lib.Instance.Node.Network.Services.API.Client.Enum;
+using Xenophyte_Lib.Instance.Node.Network.Services.API.Packet;
+using Xenophyte_Lib.Instance.Node.Network.Services.API.Packet.Explorer;
+using Xenophyte_Lib.Instance.Node.Network.Services.API.Packet.SubPacket.Request;
+using Xenophyte_Lib.Instance.Node.Network.Services.API.Packet.SubPacket.Response;
+using Xenophyte_Lib.Instance.Node.Network.Services.Firewall.Manager;
+using Xenophyte_Lib.Instance.Node.Network.Services.P2P.Broadcast;
+using Xenophyte_Lib.Instance.Node.Setting.Object;
+using Xenophyte_Lib.Log;
+using Xenophyte_Lib.Other.Object.List;
+using Xenophyte_Lib.Other.Object.Network;
+using Xenophyte_Lib.Utility;
+using static Xenophyte_Lib.Other.Object.Network.ClassCustomSocket;
 
-namespace SeguraChain_Lib.Instance.Node.Network.Services.API.Client
+namespace Xenophyte_Lib.Instance.Node.Network.Services.API.Client
 {
     public class ClassPeerApiClientObject : IDisposable
     {

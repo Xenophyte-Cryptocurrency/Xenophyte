@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Desktop_Wallet.Settings.Enum
+﻿namespace Xenophyte_Desktop_Wallet.Settings.Enum
 {
     public enum ClassWalletLoadFileEnumResult
     {

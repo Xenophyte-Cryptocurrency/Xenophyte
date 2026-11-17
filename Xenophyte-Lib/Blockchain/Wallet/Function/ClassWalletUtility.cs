@@ -8,13 +8,13 @@ using Org.BouncyCastle.Asn1.Sec;
 using Org.BouncyCastle.Asn1.X9;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Security;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Blockchain.Wallet.Object.Wallet;
-using SeguraChain_Lib.Other.Object.SHA3;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Blockchain.Wallet.Object.Wallet;
+using Xenophyte_Lib.Other.Object.SHA3;
+using Xenophyte_Lib.Utility;
 using BigInteger = Org.BouncyCastle.Math.BigInteger;
 
-namespace SeguraChain_Lib.Blockchain.Wallet.Function
+namespace Xenophyte_Lib.Blockchain.Wallet.Function
 {
     public class ClassWalletUtility
     {

@@ -1,5 +1,5 @@
 ﻿
-namespace SeguraChain_Desktop_Wallet.Language.Enum
+namespace Xenophyte_Desktop_Wallet.Language.Enum
 {
     public enum ClassLanguageEnumType
     {

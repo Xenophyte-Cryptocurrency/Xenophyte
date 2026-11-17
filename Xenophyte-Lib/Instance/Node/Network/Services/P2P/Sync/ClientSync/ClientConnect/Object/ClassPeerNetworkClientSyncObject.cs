@@ -7,21 +7,21 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
-using SeguraChain_Lib.Instance.Node.Network.Database;
-using SeguraChain_Lib.Instance.Node.Network.Database.Manager;
-using SeguraChain_Lib.Instance.Node.Network.Enum.P2P.Packet;
-using SeguraChain_Lib.Instance.Node.Network.Services.P2P.Broadcast;
-using SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.Packet;
-using SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.Packet.Model;
-using SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.Packet.SubPacket.Request;
-using SeguraChain_Lib.Instance.Node.Setting.Object;
-using SeguraChain_Lib.Log;
-using SeguraChain_Lib.Other.Object.List;
-using SeguraChain_Lib.Other.Object.Network;
-using SeguraChain_Lib.Utility;
-using static SeguraChain_Lib.Other.Object.Network.ClassCustomSocket;
+using Xenophyte_Lib.Instance.Node.Network.Database;
+using Xenophyte_Lib.Instance.Node.Network.Database.Manager;
+using Xenophyte_Lib.Instance.Node.Network.Enum.P2P.Packet;
+using Xenophyte_Lib.Instance.Node.Network.Services.P2P.Broadcast;
+using Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.Packet;
+using Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.Packet.Model;
+using Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.Packet.SubPacket.Request;
+using Xenophyte_Lib.Instance.Node.Setting.Object;
+using Xenophyte_Lib.Log;
+using Xenophyte_Lib.Other.Object.List;
+using Xenophyte_Lib.Other.Object.Network;
+using Xenophyte_Lib.Utility;
+using static Xenophyte_Lib.Other.Object.Network.ClassCustomSocket;
 
-namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.ClientConnect.Object
+namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.ClientConnect.Object
 {
     public class ClassPeerNetworkClientSyncObject : IDisposable
     {

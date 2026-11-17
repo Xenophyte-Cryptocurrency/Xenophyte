@@ -1,6 +1,6 @@
 ﻿using System.Numerics;
 
-namespace SeguraChain_Desktop_Wallet.Sync.Object
+namespace Xenophyte_Desktop_Wallet.Sync.Object
 {
     public class ClassWalletSyncAmountSpendObject
     {

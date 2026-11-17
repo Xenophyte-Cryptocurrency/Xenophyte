@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Desktop_Wallet.MainForm.Object.Enum
+﻿namespace Xenophyte_Desktop_Wallet.MainForm.Object.Enum
 {
     public enum RecentTransactionHistoryEnumResult
     {

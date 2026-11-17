@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Desktop_Wallet.Wallet.Function.Enum
+﻿namespace Xenophyte_Desktop_Wallet.Wallet.Function.Enum
 {
     public enum ClassWalletEncryptWalletPrivateKeyEnumResult
     {

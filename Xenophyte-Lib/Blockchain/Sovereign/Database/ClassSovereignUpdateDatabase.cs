@@ -4,19 +4,19 @@ using System.IO;
 using System.Linq;
 using LZ4;
 using Newtonsoft.Json;
-using SeguraChain_Lib.Algorithm;
-using SeguraChain_Lib.Blockchain.Database.DatabaseSetting;
-using SeguraChain_Lib.Blockchain.Mining.Function;
-using SeguraChain_Lib.Blockchain.Mining.Object;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Blockchain.Sovereign.Enum;
-using SeguraChain_Lib.Blockchain.Sovereign.Object;
-using SeguraChain_Lib.Blockchain.Wallet.Function;
-using SeguraChain_Lib.Log;
-using SeguraChain_Lib.Other.Object.List;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Algorithm;
+using Xenophyte_Lib.Blockchain.Database.DatabaseSetting;
+using Xenophyte_Lib.Blockchain.Mining.Function;
+using Xenophyte_Lib.Blockchain.Mining.Object;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Blockchain.Sovereign.Enum;
+using Xenophyte_Lib.Blockchain.Sovereign.Object;
+using Xenophyte_Lib.Blockchain.Wallet.Function;
+using Xenophyte_Lib.Log;
+using Xenophyte_Lib.Other.Object.List;
+using Xenophyte_Lib.Utility;
 
-namespace SeguraChain_Lib.Blockchain.Sovereign.Database
+namespace Xenophyte_Lib.Blockchain.Sovereign.Database
 {
     public class ClassSovereignUpdateDataSetting
     {

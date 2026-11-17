@@ -5,9 +5,9 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Utility;
 
-namespace SeguraChain_Lib.Log
+namespace Xenophyte_Lib.Log
 {
     public enum ClassEnumLogLevelType
     {

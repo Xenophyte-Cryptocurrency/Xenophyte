@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Lib.Instance.Node.Network.Enum.P2P.Packet
+﻿namespace Xenophyte_Lib.Instance.Node.Network.Enum.P2P.Packet
 {
     public class ClassPeerPacketSetting
     {

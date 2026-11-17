@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Lib.Blockchain.Block.Enum
+﻿namespace Xenophyte_Lib.Blockchain.Block.Enum
 {
     /// <summary>
     /// Split character used on no-json block data.

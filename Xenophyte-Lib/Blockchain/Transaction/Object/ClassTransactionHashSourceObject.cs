@@ -1,6 +1,6 @@
 ﻿using System.Numerics;
 
-namespace SeguraChain_Lib.Blockchain.Transaction.Object
+namespace Xenophyte_Lib.Blockchain.Transaction.Object
 {
     public class ClassTransactionHashSourceObject
     {

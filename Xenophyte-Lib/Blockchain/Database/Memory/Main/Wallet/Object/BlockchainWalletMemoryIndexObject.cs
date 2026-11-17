@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace SeguraChain_Lib.Blockchain.Database.Memory.Main.Wallet.Object
+namespace Xenophyte_Lib.Blockchain.Database.Memory.Main.Wallet.Object
 {
     public class BlockchainWalletMemoryIndexObject
     {

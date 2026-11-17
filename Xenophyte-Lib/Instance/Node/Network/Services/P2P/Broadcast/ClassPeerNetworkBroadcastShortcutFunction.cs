@@ -1,16 +1,16 @@
 ﻿using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Security;
-using SeguraChain_Lib.Algorithm;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Blockchain.Wallet.Function;
-using SeguraChain_Lib.Instance.Node.Network.Database;
-using SeguraChain_Lib.Instance.Node.Network.Database.Manager;
-using SeguraChain_Lib.Instance.Node.Network.Database.Object;
-using SeguraChain_Lib.Instance.Node.Network.Enum.P2P.Packet;
-using SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.ClientConnect.Object;
-using SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.Packet;
-using SeguraChain_Lib.Instance.Node.Setting.Object;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Algorithm;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Blockchain.Wallet.Function;
+using Xenophyte_Lib.Instance.Node.Network.Database;
+using Xenophyte_Lib.Instance.Node.Network.Database.Manager;
+using Xenophyte_Lib.Instance.Node.Network.Database.Object;
+using Xenophyte_Lib.Instance.Node.Network.Enum.P2P.Packet;
+using Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.ClientConnect.Object;
+using Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.Packet;
+using Xenophyte_Lib.Instance.Node.Setting.Object;
+using Xenophyte_Lib.Utility;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -19,7 +19,7 @@ using System.Threading.Tasks;
 using BigInteger = Org.BouncyCastle.Math.BigInteger;
 
 
-namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Broadcast
+namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Broadcast
 {
     public class ClassPeerNetworkBroadcastShortcutFunction
     {

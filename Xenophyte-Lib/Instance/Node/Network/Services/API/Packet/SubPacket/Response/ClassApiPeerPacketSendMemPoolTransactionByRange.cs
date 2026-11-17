@@ -1,7 +1,7 @@
-﻿using SeguraChain_Lib.Blockchain.Transaction.Object;
+﻿using Xenophyte_Lib.Blockchain.Transaction.Object;
 using System.Collections.Generic;
 
-namespace SeguraChain_Lib.Instance.Node.Network.Services.API.Packet.SubPacket.Response
+namespace Xenophyte_Lib.Instance.Node.Network.Services.API.Packet.SubPacket.Response
 {
     public class ClassApiPeerPacketSendMemPoolTransactionByRange
     {

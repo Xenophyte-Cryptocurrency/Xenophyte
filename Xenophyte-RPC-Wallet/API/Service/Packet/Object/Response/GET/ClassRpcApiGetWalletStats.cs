@@ -1,6 +1,6 @@
 ﻿using System.Numerics;
 
-namespace SeguraChain_RPC_Wallet.API.Service.Packet.Object.Response.GET
+namespace Xenophyte_RPC_Wallet.API.Service.Packet.Object.Response.GET
 {
     public class ClassRpcApiGetWalletStats
     {

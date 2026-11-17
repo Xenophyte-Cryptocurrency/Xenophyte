@@ -1,7 +1,7 @@
-﻿using SeguraChain_Lib.Blockchain.Block.Object.Structure;
+﻿using Xenophyte_Lib.Blockchain.Block.Object.Structure;
 using System.Collections.Generic;
 
-namespace SeguraChain_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Network.Request.Packet.Recv.Object
+namespace Xenophyte_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Network.Request.Packet.Recv.Object
 {
     public class ClassPacketIoCachePushBlock
     {

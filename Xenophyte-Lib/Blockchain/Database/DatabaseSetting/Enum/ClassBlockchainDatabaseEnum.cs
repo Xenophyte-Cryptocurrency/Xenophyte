@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Lib.Blockchain.Database.DatabaseSetting.Enum
+﻿namespace Xenophyte_Lib.Blockchain.Database.DatabaseSetting.Enum
 {
     public enum ClassBlockchainDatabaseEnumLoad
     {

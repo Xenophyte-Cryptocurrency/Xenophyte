@@ -1,9 +1,9 @@
-﻿using SeguraChain_Lib.Instance.Node.Network.Enum.P2P.Packet;
-using SeguraChain_Lib.Utility;
+﻿using Xenophyte_Lib.Instance.Node.Network.Enum.P2P.Packet;
+using Xenophyte_Lib.Utility;
 using System;
 using System.Diagnostics;
 
-namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.Packet
+namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.Packet
 {
     public class ClassPeerPacketSendObject
     {

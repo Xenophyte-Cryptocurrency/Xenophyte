@@ -5,14 +5,14 @@ using System.Linq;
 using System.Numerics;
 using System.Threading;
 using Newtonsoft.Json;
-using SeguraChain_Lib.Blockchain.Block.Enum;
-using SeguraChain_Lib.Blockchain.Mining.Object;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Blockchain.Transaction.Object;
-using SeguraChain_Lib.Other.Object.List;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Blockchain.Block.Enum;
+using Xenophyte_Lib.Blockchain.Mining.Object;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Blockchain.Transaction.Object;
+using Xenophyte_Lib.Other.Object.List;
+using Xenophyte_Lib.Utility;
 
-namespace SeguraChain_Lib.Blockchain.Block.Object.Structure
+namespace Xenophyte_Lib.Blockchain.Block.Object.Structure
 {
     public class ClassBlockObject : IDisposable
     {

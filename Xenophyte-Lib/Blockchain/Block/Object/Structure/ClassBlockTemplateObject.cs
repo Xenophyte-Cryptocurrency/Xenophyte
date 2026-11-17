@@ -1,6 +1,6 @@
 ﻿using System.Numerics;
 
-namespace SeguraChain_Lib.Blockchain.Block.Object.Structure
+namespace Xenophyte_Lib.Blockchain.Block.Object.Structure
 {
     public class ClassBlockTemplateObject
     {

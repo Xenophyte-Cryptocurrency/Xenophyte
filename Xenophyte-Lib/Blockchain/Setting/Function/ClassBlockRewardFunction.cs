@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Numerics;
 
-namespace SeguraChain_Lib.Blockchain.Setting.Function
+namespace Xenophyte_Lib.Blockchain.Setting.Function
 {
     public class ClassBlockRewardFunction
     {

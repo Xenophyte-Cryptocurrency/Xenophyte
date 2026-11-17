@@ -1,7 +1,7 @@
-﻿using SeguraChain_Lib.Blockchain.Block.Object.Structure;
-using SeguraChain_Lib.Blockchain.Mining.Object;
+﻿using Xenophyte_Lib.Blockchain.Block.Object.Structure;
+using Xenophyte_Lib.Blockchain.Mining.Object;
 
-namespace SeguraChain_Solo_Miner.Network.Object
+namespace Xenophyte_Solo_Miner.Network.Object
 {
     public class ClassMiningNetworkStatsObject
     {

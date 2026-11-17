@@ -3,13 +3,13 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Threading;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Instance.Node;
-using SeguraChain_Lib.Log;
-using SeguraChain_Lib.Utility;
-using SeguraChain_Peer.CommandLine;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Instance.Node;
+using Xenophyte_Lib.Log;
+using Xenophyte_Lib.Utility;
+using Xenophyte_Peer.CommandLine;
 
-namespace SeguraChain_Peer
+namespace Xenophyte_Peer
 {
     class Program
     {

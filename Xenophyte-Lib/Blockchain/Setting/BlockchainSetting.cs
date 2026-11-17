@@ -1,11 +1,11 @@
 ﻿using System.Collections.Generic;
 using System.Numerics;
-using SeguraChain_Lib.Blockchain.Mining.Object;
-using SeguraChain_Lib.Blockchain.Setting.Function;
-using SeguraChain_Lib.Blockchain.Sovereign.Database;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Blockchain.Mining.Object;
+using Xenophyte_Lib.Blockchain.Setting.Function;
+using Xenophyte_Lib.Blockchain.Sovereign.Database;
+using Xenophyte_Lib.Utility;
 
-namespace SeguraChain_Lib.Blockchain.Setting
+namespace Xenophyte_Lib.Blockchain.Setting
 {
     /// <summary>
     /// Note 1: Once a value change, especially of the part about the Blockchain Settings & Properties part, the compatibility change.
@@ -247,7 +247,7 @@ namespace SeguraChain_Lib.Blockchain.Setting
 
         #region Other settings.
 
-        public const string BlockchainSetupWikiPage = "https://github.com/SeguraChain/SeguraChain/wiki/Setup-your-own-Blockchain";
+        public const string BlockchainSetupWikiPage = "https://github.com/Xenophyte/Xenophyte/wiki/Setup-your-own-Blockchain";
 
         #endregion
     }

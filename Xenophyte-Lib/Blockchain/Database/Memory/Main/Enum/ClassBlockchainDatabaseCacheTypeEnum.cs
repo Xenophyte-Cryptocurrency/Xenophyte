@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Lib.Blockchain.Database.Memory.Main.Enum
+﻿namespace Xenophyte_Lib.Blockchain.Database.Memory.Main.Enum
 {
     public enum ClassBlockchainDatabaseCacheTypeEnum
     {

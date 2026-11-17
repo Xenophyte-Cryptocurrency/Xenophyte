@@ -1,6 +1,6 @@
-﻿using SeguraChain_Lib.Instance.IoCache.Request.Packet.Send.Enum;
+﻿using Xenophyte_Lib.Instance.IoCache.Request.Packet.Send.Enum;
 
-namespace SeguraChain_Lib.Instance.IoCache.Request.Packet.Send
+namespace Xenophyte_Lib.Instance.IoCache.Request.Packet.Send
 {
     public class ClassIoCachePacketSend
     {

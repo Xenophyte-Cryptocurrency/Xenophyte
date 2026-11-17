@@ -1,10 +1,10 @@
 ﻿using LZ4;
-using SeguraChain_Lib.Algorithm;
-using SeguraChain_Lib.Blockchain.Block.Object.Structure;
-using SeguraChain_Lib.Blockchain.Wallet.Function;
-using SeguraChain_Lib.Other.Object.List;
-using SeguraChain_Lib.Utility;
-using SeguraChain_RPC_Wallet.Database.Wallet;
+using Xenophyte_Lib.Algorithm;
+using Xenophyte_Lib.Blockchain.Block.Object.Structure;
+using Xenophyte_Lib.Blockchain.Wallet.Function;
+using Xenophyte_Lib.Other.Object.List;
+using Xenophyte_Lib.Utility;
+using Xenophyte_RPC_Wallet.Database.Wallet;
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -12,7 +12,7 @@ using System.IO;
 using System.Linq;
 using System.Numerics;
 
-namespace SeguraChain_RPC_Wallet.Database
+namespace Xenophyte_RPC_Wallet.Database
 {
     public class ClassWalletDatabase
     {

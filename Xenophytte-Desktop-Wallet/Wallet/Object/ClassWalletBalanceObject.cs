@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Desktop_Wallet.Wallet.Object
+﻿namespace Xenophyte_Desktop_Wallet.Wallet.Object
 {
     public class ClassWalletBalanceObject
     {

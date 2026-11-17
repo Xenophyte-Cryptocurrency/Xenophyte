@@ -1,5 +1,5 @@
 ﻿// ReSharper disable InconsistentNaming
-namespace SeguraChain_Desktop_Wallet.Language.Object
+namespace Xenophyte_Desktop_Wallet.Language.Object
 {
     /// <summary>
     /// All language parts.

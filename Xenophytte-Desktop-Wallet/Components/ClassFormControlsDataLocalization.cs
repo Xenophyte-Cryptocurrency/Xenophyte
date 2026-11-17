@@ -1,4 +1,4 @@
-﻿using SeguraChain_Desktop_Wallet.Enum;
+﻿using Xenophyte_Desktop_Wallet.Enum;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace SeguraChain_Desktop_Wallet.Components
+namespace Xenophyte_Desktop_Wallet.Components
 {
     /// <summary>Añadir al formulario donde aplica > "private ClassFormControlResponsive _FormControlResponsiveData;"</summary>
     public class ClassContainerResponsive

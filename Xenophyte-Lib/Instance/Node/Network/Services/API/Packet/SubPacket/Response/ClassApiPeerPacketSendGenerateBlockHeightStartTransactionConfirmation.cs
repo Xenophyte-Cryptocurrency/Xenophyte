@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Lib.Instance.Node.Network.Services.API.Packet.SubPacket.Response
+﻿namespace Xenophyte_Lib.Instance.Node.Network.Services.API.Packet.SubPacket.Response
 {
     public class ClassApiPeerPacketSendGenerateBlockHeightStartTransactionConfirmation
     {

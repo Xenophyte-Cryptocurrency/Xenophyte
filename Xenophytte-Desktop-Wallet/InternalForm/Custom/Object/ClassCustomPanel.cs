@@ -1,10 +1,10 @@
-﻿using SeguraChain_Desktop_Wallet.Components;
+﻿using Xenophyte_Desktop_Wallet.Components;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 using System.ComponentModel;
 
-namespace SeguraChain_Desktop_Wallet.InternalForm.Custom.Object
+namespace Xenophyte_Desktop_Wallet.InternalForm.Custom.Object
 {
     public class ClassCustomPanel : Panel
     {

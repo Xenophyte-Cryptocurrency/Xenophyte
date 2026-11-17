@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Desktop_Wallet.Enum
+﻿namespace Xenophyte_Desktop_Wallet.Enum
 {
     public enum ClassEnumTransactionHistoryColumnType
     {

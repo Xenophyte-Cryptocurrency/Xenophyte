@@ -1,9 +1,9 @@
-﻿using SeguraChain_Lib.Blockchain.Transaction.Object;
-using SeguraChain_Lib.Other.Object.List;
+﻿using Xenophyte_Lib.Blockchain.Transaction.Object;
+using Xenophyte_Lib.Other.Object.List;
 using System;
 using System.Numerics;
 
-namespace SeguraChain_RPC_Wallet.Database.Object
+namespace Xenophyte_RPC_Wallet.Database.Object
 {
     public class ClassSendTransactionFeeCostCalculationObject : IDisposable
     {

@@ -1,5 +1,5 @@
 ﻿
-namespace SeguraChain_Desktop_Wallet.InternalForm.Setup
+namespace Xenophyte_Desktop_Wallet.InternalForm.Setup
 {
     partial class ClassWalletSetupForm
     {
@@ -42,7 +42,7 @@ namespace SeguraChain_Desktop_Wallet.InternalForm.Setup
             // pictureBoxLogo
             // 
             this.pictureBoxLogo.BackColor = System.Drawing.Color.Transparent;
-            this.pictureBoxLogo.BackgroundImage = global::SeguraChain_Desktop_Wallet.Properties.Resources.logo_web_profil;
+            this.pictureBoxLogo.BackgroundImage = global::Xenophyte_Desktop_Wallet.Properties.Resources.logo_web_profil;
             this.pictureBoxLogo.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch;
             this.pictureBoxLogo.Location = new System.Drawing.Point(472, 9);
             this.pictureBoxLogo.Name = "pictureBoxLogo";

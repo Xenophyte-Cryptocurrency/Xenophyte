@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_RPC_Wallet.Command.Enum
+﻿namespace Xenophyte_RPC_Wallet.Command.Enum
 {
     public class ClassRpcEnumCommand
     {

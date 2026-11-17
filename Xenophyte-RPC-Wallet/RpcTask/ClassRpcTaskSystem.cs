@@ -1,19 +1,19 @@
-﻿using SeguraChain_Lib.Blockchain.Block.Enum;
-using SeguraChain_Lib.Blockchain.Block.Object.Structure;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Blockchain.Stats.Object;
-using SeguraChain_Lib.Instance.Node.Network.Services.API.Utility;
-using SeguraChain_Lib.Other.Object.List;
-using SeguraChain_RPC_Wallet.Config;
-using SeguraChain_RPC_Wallet.Database;
-using SeguraChain_RPC_Wallet.Database.Wallet;
+﻿using Xenophyte_Lib.Blockchain.Block.Enum;
+using Xenophyte_Lib.Blockchain.Block.Object.Structure;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Blockchain.Stats.Object;
+using Xenophyte_Lib.Instance.Node.Network.Services.API.Utility;
+using Xenophyte_Lib.Other.Object.List;
+using Xenophyte_RPC_Wallet.Config;
+using Xenophyte_RPC_Wallet.Database;
+using Xenophyte_RPC_Wallet.Database.Wallet;
 using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SeguraChain_RPC_Wallet.RpcTask
+namespace Xenophyte_RPC_Wallet.RpcTask
 {
 
     /// <summary>

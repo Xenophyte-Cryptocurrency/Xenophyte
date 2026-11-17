@@ -1,10 +1,10 @@
-using SeguraChain_Lib.Other.Object.Network;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Other.Object.Network;
+using Xenophyte_Lib.Utility;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SeguraChain_Lib.TaskManager.Object
+namespace Xenophyte_Lib.TaskManager.Object
 {
     public class ClassTaskObject
     {

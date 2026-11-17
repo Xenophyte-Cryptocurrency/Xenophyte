@@ -1,14 +1,14 @@
-﻿using SeguraChain_Desktop_Wallet.Common;
-using SeguraChain_Desktop_Wallet.Components;
-using SeguraChain_Desktop_Wallet.InternalForm.Create;
-using SeguraChain_Desktop_Wallet.Language.Enum;
-using SeguraChain_Desktop_Wallet.Language.Object;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Utility;
+﻿using Xenophyte_Desktop_Wallet.Common;
+using Xenophyte_Desktop_Wallet.Components;
+using Xenophyte_Desktop_Wallet.InternalForm.Create;
+using Xenophyte_Desktop_Wallet.Language.Enum;
+using Xenophyte_Desktop_Wallet.Language.Object;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Utility;
 using System;
 using System.Windows.Forms;
 
-namespace SeguraChain_Desktop_Wallet.InternalForm.Import
+namespace Xenophyte_Desktop_Wallet.InternalForm.Import
 {
     public partial class ClassImportWalletPrivateKeyInternalForm : Form
     {

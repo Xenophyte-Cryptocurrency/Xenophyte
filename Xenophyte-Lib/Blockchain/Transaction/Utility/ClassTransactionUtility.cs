@@ -6,20 +6,20 @@ using System.Linq;
 using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
-using SeguraChain_Lib.Algorithm;
-using SeguraChain_Lib.Blockchain.Block.Enum;
-using SeguraChain_Lib.Blockchain.Block.Object.Structure;
-using SeguraChain_Lib.Blockchain.Database;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Blockchain.Stats.Function;
-using SeguraChain_Lib.Blockchain.Transaction.Enum;
-using SeguraChain_Lib.Blockchain.Transaction.Object;
-using SeguraChain_Lib.Blockchain.Wallet.Function;
-using SeguraChain_Lib.Other.Object.List;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Algorithm;
+using Xenophyte_Lib.Blockchain.Block.Enum;
+using Xenophyte_Lib.Blockchain.Block.Object.Structure;
+using Xenophyte_Lib.Blockchain.Database;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Blockchain.Stats.Function;
+using Xenophyte_Lib.Blockchain.Transaction.Enum;
+using Xenophyte_Lib.Blockchain.Transaction.Object;
+using Xenophyte_Lib.Blockchain.Wallet.Function;
+using Xenophyte_Lib.Other.Object.List;
+using Xenophyte_Lib.Utility;
 
 
-namespace SeguraChain_Lib.Blockchain.Transaction.Utility
+namespace Xenophyte_Lib.Blockchain.Transaction.Utility
 {
     public class ClassTransactionUtility
     {

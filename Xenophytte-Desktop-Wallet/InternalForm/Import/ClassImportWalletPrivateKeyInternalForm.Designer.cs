@@ -1,5 +1,5 @@
 ﻿
-namespace SeguraChain_Desktop_Wallet.InternalForm.Import
+namespace Xenophyte_Desktop_Wallet.InternalForm.Import
 {
     partial class ClassImportWalletPrivateKeyInternalForm
     {

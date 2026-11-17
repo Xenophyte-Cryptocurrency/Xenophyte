@@ -8,8 +8,8 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
 	<TargetFrameworks>net9.0;net8.0;net7.0;net6.0;net5.0;net48</TargetFrameworks>
-    <RootNamespace>SeguraChain_Test_Tool</RootNamespace>
-    <StartupObject>SeguraChain_Test_Tool.Program</StartupObject>
+    <RootNamespace>Xenophyte_Test_Tool</RootNamespace>
+    <StartupObject>Xenophyte_Test_Tool.Program</StartupObject>
     <Configurations>Debug;Release</Configurations>
   </PropertyGroup>
 
@@ -46,7 +46,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SeguraChain-Lib\SeguraChain-Lib.csproj" />
+    <ProjectReference Include="..\Xenophyte-Lib\Xenophyte-Lib.csproj" />
   </ItemGroup>
 
 </Project>

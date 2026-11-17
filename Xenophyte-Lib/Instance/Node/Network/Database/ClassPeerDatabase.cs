@@ -7,17 +7,17 @@ using System.Net;
 using System.Threading;
 using Newtonsoft.Json;
 using Org.BouncyCastle.Utilities.IO.Pem;
-using SeguraChain_Lib.Algorithm;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Instance.Node.Network.Database.Object;
-using SeguraChain_Lib.Instance.Node.Network.Enum.Manage;
-using SeguraChain_Lib.Instance.Node.Network.Enum.P2P.Status;
-using SeguraChain_Lib.Instance.Node.Setting.Object;
-using SeguraChain_Lib.Log;
-using SeguraChain_Lib.Other.Object.List;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Algorithm;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Instance.Node.Network.Database.Object;
+using Xenophyte_Lib.Instance.Node.Network.Enum.Manage;
+using Xenophyte_Lib.Instance.Node.Network.Enum.P2P.Status;
+using Xenophyte_Lib.Instance.Node.Setting.Object;
+using Xenophyte_Lib.Log;
+using Xenophyte_Lib.Other.Object.List;
+using Xenophyte_Lib.Utility;
 
-namespace SeguraChain_Lib.Instance.Node.Network.Database
+namespace Xenophyte_Lib.Instance.Node.Network.Database
 {
     public class ClassPeerDataSetting
     {

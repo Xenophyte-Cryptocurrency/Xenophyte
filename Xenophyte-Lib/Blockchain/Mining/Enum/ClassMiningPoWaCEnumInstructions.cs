@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Lib.Blockchain.Mining.Enum
+﻿namespace Xenophyte_Lib.Blockchain.Mining.Enum
 {
     public enum ClassMiningPoWaCEnumInstructions
     {

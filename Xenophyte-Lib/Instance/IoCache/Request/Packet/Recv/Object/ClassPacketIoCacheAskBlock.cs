@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Lib.Instance.IoCache.Request.Packet.Recv.Object
+﻿namespace Xenophyte_Lib.Instance.IoCache.Request.Packet.Recv.Object
 {
     public class ClassPacketIoCacheAskBlock
     {

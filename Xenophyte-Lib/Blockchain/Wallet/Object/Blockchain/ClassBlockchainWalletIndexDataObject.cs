@@ -4,11 +4,11 @@ using System.Linq;
 using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
-using SeguraChain_Lib.Blockchain.Checkpoint.Enum;
-using SeguraChain_Lib.Blockchain.Database;
-using SeguraChain_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Blockchain.Checkpoint.Enum;
+using Xenophyte_Lib.Blockchain.Database;
+using Xenophyte_Lib.Blockchain.Setting;
 
-namespace SeguraChain_Lib.Blockchain.Wallet.Object.Blockchain
+namespace Xenophyte_Lib.Blockchain.Wallet.Object.Blockchain
 {
     public class ClassBlockchainWalletIndexDataObject
     {

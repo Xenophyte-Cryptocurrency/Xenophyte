@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Lib.Instance.IoCache.Packet.Config
+﻿namespace Xenophyte_Lib.Instance.IoCache.Packet.Config
 {
     public class ClassIoCacheConfigPacket
     {

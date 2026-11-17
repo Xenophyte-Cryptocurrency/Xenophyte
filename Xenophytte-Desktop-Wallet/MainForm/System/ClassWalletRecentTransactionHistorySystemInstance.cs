@@ -5,20 +5,20 @@ using System.Drawing;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using SeguraChain_Desktop_Wallet.Common;
-using SeguraChain_Desktop_Wallet.MainForm.Object;
-using SeguraChain_Desktop_Wallet.Properties;
-using SeguraChain_Desktop_Wallet.Settings.Enum;
-using SeguraChain_Desktop_Wallet.Wallet.Object;
-using SeguraChain_Lib.Blockchain.Block.Object.Structure;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Blockchain.Transaction.Enum;
-using SeguraChain_Lib.Blockchain.Transaction.Object;
-using SeguraChain_Lib.Blockchain.Transaction.Utility;
-using SeguraChain_Lib.Other.Object.List;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Desktop_Wallet.Common;
+using Xenophyte_Desktop_Wallet.MainForm.Object;
+using Xenophyte_Desktop_Wallet.Properties;
+using Xenophyte_Desktop_Wallet.Settings.Enum;
+using Xenophyte_Desktop_Wallet.Wallet.Object;
+using Xenophyte_Lib.Blockchain.Block.Object.Structure;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Blockchain.Transaction.Enum;
+using Xenophyte_Lib.Blockchain.Transaction.Object;
+using Xenophyte_Lib.Blockchain.Transaction.Utility;
+using Xenophyte_Lib.Other.Object.List;
+using Xenophyte_Lib.Utility;
 
-namespace SeguraChain_Desktop_Wallet.MainForm.System
+namespace Xenophyte_Desktop_Wallet.MainForm.System
 {
     public class ClassWalletRecentTransactionHistorySystemInstance
     {

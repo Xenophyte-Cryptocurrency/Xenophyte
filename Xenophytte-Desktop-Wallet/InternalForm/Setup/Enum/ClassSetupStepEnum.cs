@@ -1,5 +1,5 @@
 ﻿
-namespace SeguraChain_Desktop_Wallet.InternalForm.Setup.Enum
+namespace Xenophyte_Desktop_Wallet.InternalForm.Setup.Enum
 {
     public enum ClassSetupStepEnum
     {

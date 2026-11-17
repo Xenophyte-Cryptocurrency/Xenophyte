@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Numerics;
-using SeguraChain_Lib.Blockchain.Block.Enum;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Blockchain.Stats.Enum;
-using SeguraChain_Lib.Blockchain.Transaction.Utility;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Blockchain.Block.Enum;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Blockchain.Stats.Enum;
+using Xenophyte_Lib.Blockchain.Transaction.Utility;
+using Xenophyte_Lib.Utility;
 
-namespace SeguraChain_Lib.Blockchain.Stats.Object
+namespace Xenophyte_Lib.Blockchain.Stats.Object
 {
     public class ClassBlockchainNetworkStatsObject
     {

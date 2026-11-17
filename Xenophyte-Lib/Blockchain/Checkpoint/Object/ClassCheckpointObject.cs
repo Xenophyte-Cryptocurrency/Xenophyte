@@ -1,7 +1,7 @@
 ﻿using System.Numerics;
-using SeguraChain_Lib.Blockchain.Checkpoint.Enum;
+using Xenophyte_Lib.Blockchain.Checkpoint.Enum;
 
-namespace SeguraChain_Lib.Blockchain.Checkpoint.Object
+namespace Xenophyte_Lib.Blockchain.Checkpoint.Object
 {
     public class ClassCheckpointObject
     {

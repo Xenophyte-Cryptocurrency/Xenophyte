@@ -1,9 +1,9 @@
 ﻿using System.Collections.Concurrent;
 using System.Threading;
-using SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Client;
-using SeguraChain_Lib.Instance.Node.Setting.Object;
+using Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Client;
+using Xenophyte_Lib.Instance.Node.Setting.Object;
 
-namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Object
+namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Object
 {
     public class ClassPeerIncomingConnectionObject
     {

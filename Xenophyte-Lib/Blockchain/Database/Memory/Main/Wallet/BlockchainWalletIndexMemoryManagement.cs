@@ -4,13 +4,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
 using System.Threading;
-using SeguraChain_Lib.Blockchain.Database.DatabaseSetting;
-using SeguraChain_Lib.Blockchain.Database.Memory.Main.Wallet.Object;
-using SeguraChain_Lib.Blockchain.Wallet.Object.Blockchain;
-using SeguraChain_Lib.Other.Object.List;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Blockchain.Database.DatabaseSetting;
+using Xenophyte_Lib.Blockchain.Database.Memory.Main.Wallet.Object;
+using Xenophyte_Lib.Blockchain.Wallet.Object.Blockchain;
+using Xenophyte_Lib.Other.Object.List;
+using Xenophyte_Lib.Utility;
 
-namespace SeguraChain_Lib.Blockchain.Database.Memory.Main.Wallet
+namespace Xenophyte_Lib.Blockchain.Database.Memory.Main.Wallet
 {
     /// <summary>
     /// Store wallet address and checkpoints.

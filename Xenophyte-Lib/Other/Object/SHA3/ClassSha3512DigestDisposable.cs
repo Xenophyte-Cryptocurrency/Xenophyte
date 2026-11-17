@@ -1,7 +1,7 @@
 ﻿using System;
 using Org.BouncyCastle.Crypto.Digests;
 
-namespace SeguraChain_Lib.Other.Object.SHA3
+namespace Xenophyte_Lib.Other.Object.SHA3
 {
     public class ClassSha3512DigestDisposable : IDisposable
     {

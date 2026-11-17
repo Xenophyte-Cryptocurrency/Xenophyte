@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Lib.Instance.Node.Network.Services.Firewall.Enum
+﻿namespace Xenophyte_Lib.Instance.Node.Network.Services.Firewall.Enum
 {
     public class ClassApiFirewallName
     {

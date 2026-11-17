@@ -1,6 +1,6 @@
-﻿using SeguraChain_Lib.Blockchain.Setting;
+﻿using Xenophyte_Lib.Blockchain.Setting;
 
-namespace SeguraChain_Solo_Miner.Setting.Object
+namespace Xenophyte_Solo_Miner.Setting.Object
 {
     public class ClassSoloMinerSettingObject
     {

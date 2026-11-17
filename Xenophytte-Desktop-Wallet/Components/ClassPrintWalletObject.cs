@@ -1,10 +1,10 @@
-﻿using SeguraChain_Desktop_Wallet.Properties;
+﻿using Xenophyte_Desktop_Wallet.Properties;
 using System;
 using System.Drawing;
 using System.Drawing.Printing;
 using System.Windows.Forms;
 
-namespace SeguraChain_Desktop_Wallet.Components
+namespace Xenophyte_Desktop_Wallet.Components
 {
     public class ClassPrintWalletObject : IDisposable
     {

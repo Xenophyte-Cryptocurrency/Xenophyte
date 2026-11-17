@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Solo_Miner.Command.Enum
+﻿namespace Xenophyte_Solo_Miner.Command.Enum
 {
     public class ClassEnumCommandLines
     {

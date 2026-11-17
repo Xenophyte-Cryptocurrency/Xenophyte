@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace SeguraChain_Lib.Other.Object.List
+namespace Xenophyte_Lib.Other.Object.List
 {
     public class DisposableConcurrentDictionary<V, T> : IDisposable
     {

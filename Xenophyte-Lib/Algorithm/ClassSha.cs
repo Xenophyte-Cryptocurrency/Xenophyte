@@ -1,9 +1,9 @@
-﻿using SeguraChain_Lib.Other.Object.SHA3;
-using SeguraChain_Lib.Utility;
+﻿using Xenophyte_Lib.Other.Object.SHA3;
+using Xenophyte_Lib.Utility;
 using System;
 using System.Threading;
 
-namespace SeguraChain_Lib.Algorithm
+namespace Xenophyte_Lib.Algorithm
 {
     public class ClassSha
     {

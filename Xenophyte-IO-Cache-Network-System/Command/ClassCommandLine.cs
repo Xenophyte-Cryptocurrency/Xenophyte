@@ -1,11 +1,11 @@
-﻿using SeguraChain_IO_Cache_Network_System.Command.Enum;
-using SeguraChain_IO_Cache_Network_System.Server;
-using SeguraChain_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Main;
-using SeguraChain_Lib.Utility;
+﻿using Xenophyte_IO_Cache_Network_System.Command.Enum;
+using Xenophyte_IO_Cache_Network_System.Server;
+using Xenophyte_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Main;
+using Xenophyte_Lib.Utility;
 using System;
 using System.Threading;
 
-namespace SeguraChain_IO_Cache_Network_System.Command
+namespace Xenophyte_IO_Cache_Network_System.Command
 {
     public class ClassCommandLine
     {

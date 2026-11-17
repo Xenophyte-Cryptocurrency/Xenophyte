@@ -4,27 +4,27 @@ using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using SeguraChain_Lib.Blockchain.MemPool.Database;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Blockchain.Sovereign.Database;
-using SeguraChain_Lib.Blockchain.Sovereign.Enum;
-using SeguraChain_Lib.Blockchain.Sovereign.Object;
-using SeguraChain_Lib.Blockchain.Stats.Function;
-using SeguraChain_Lib.Blockchain.Stats.Object;
-using SeguraChain_Lib.Blockchain.Wallet.Function;
-using SeguraChain_Lib.Blockchain.Wallet.Object.Blockchain;
-using SeguraChain_Lib.Blockchain.Wallet.Object.Wallet;
-using SeguraChain_Lib.Instance.Node;
-using SeguraChain_Lib.Instance.Node.Network.Database;
-using SeguraChain_Lib.Instance.Node.Network.Database.Manager;
-using SeguraChain_Lib.Instance.Node.Network.Enum.Manage;
-using SeguraChain_Lib.Log;
-using SeguraChain_Lib.Other.Object.List;
-using SeguraChain_Lib.TaskManager;
-using SeguraChain_Lib.Utility;
-using SeguraChain_Peer.Mining.Instance;
+using Xenophyte_Lib.Blockchain.MemPool.Database;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Blockchain.Sovereign.Database;
+using Xenophyte_Lib.Blockchain.Sovereign.Enum;
+using Xenophyte_Lib.Blockchain.Sovereign.Object;
+using Xenophyte_Lib.Blockchain.Stats.Function;
+using Xenophyte_Lib.Blockchain.Stats.Object;
+using Xenophyte_Lib.Blockchain.Wallet.Function;
+using Xenophyte_Lib.Blockchain.Wallet.Object.Blockchain;
+using Xenophyte_Lib.Blockchain.Wallet.Object.Wallet;
+using Xenophyte_Lib.Instance.Node;
+using Xenophyte_Lib.Instance.Node.Network.Database;
+using Xenophyte_Lib.Instance.Node.Network.Database.Manager;
+using Xenophyte_Lib.Instance.Node.Network.Enum.Manage;
+using Xenophyte_Lib.Log;
+using Xenophyte_Lib.Other.Object.List;
+using Xenophyte_Lib.TaskManager;
+using Xenophyte_Lib.Utility;
+using Xenophyte_Peer.Mining.Instance;
 
-namespace SeguraChain_Peer.CommandLine
+namespace Xenophyte_Peer.CommandLine
 {
     public class ClassConsoleCommandLineEnumeration
     {

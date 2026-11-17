@@ -5,15 +5,15 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Newtonsoft.Json;
-using SeguraChain_Desktop_Wallet.InternalForm.Setup;
-using SeguraChain_Desktop_Wallet.Language.Database;
-using SeguraChain_Desktop_Wallet.Settings.Enum;
-using SeguraChain_Desktop_Wallet.Settings.Object;
-using SeguraChain_Desktop_Wallet.Sync;
-using SeguraChain_Desktop_Wallet.Wallet.Database;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Desktop_Wallet.InternalForm.Setup;
+using Xenophyte_Desktop_Wallet.Language.Database;
+using Xenophyte_Desktop_Wallet.Settings.Enum;
+using Xenophyte_Desktop_Wallet.Settings.Object;
+using Xenophyte_Desktop_Wallet.Sync;
+using Xenophyte_Desktop_Wallet.Wallet.Database;
+using Xenophyte_Lib.Utility;
 
-namespace SeguraChain_Desktop_Wallet.Common
+namespace Xenophyte_Desktop_Wallet.Common
 {
     public class ClassDesktopWalletCommonData
     {

@@ -1,4 +1,4 @@
-﻿using SeguraChain_Desktop_Wallet.Components;
+﻿using Xenophyte_Desktop_Wallet.Components;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace SeguraChain_Desktop_Wallet.Common
+namespace Xenophyte_Desktop_Wallet.Common
 {
     public class ClassDataContextForm
     {

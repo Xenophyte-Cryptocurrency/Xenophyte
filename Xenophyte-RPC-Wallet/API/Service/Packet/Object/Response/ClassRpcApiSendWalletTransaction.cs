@@ -1,7 +1,7 @@
-﻿using SeguraChain_Lib.Blockchain.Block.Object.Structure;
+﻿using Xenophyte_Lib.Blockchain.Block.Object.Structure;
 using System.Collections.Generic;
 
-namespace SeguraChain_RPC_Wallet.API.Service.Packet.Object.Response
+namespace Xenophyte_RPC_Wallet.API.Service.Packet.Object.Response
 {
     public class ClassRpcApiSendWalletTransaction
     {

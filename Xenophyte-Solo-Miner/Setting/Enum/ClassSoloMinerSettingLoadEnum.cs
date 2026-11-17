@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Solo_Miner.Setting.Enum
+﻿namespace Xenophyte_Solo_Miner.Setting.Enum
 {
     public enum ClassSoloMinerSettingLoadEnum
     {

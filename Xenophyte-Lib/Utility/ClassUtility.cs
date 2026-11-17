@@ -16,14 +16,14 @@ using System.Threading.Tasks;
 using LZ4;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Instance.Node.Network.Enum.P2P.Packet;
-using SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.Packet.Model;
-using SeguraChain_Lib.Other.Object.List;
-using SeguraChain_Lib.Other.Object.Network;
-using SeguraChain_Lib.Other.Object.SHA3;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Instance.Node.Network.Enum.P2P.Packet;
+using Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.Packet.Model;
+using Xenophyte_Lib.Other.Object.List;
+using Xenophyte_Lib.Other.Object.Network;
+using Xenophyte_Lib.Other.Object.SHA3;
 
-namespace SeguraChain_Lib.Utility
+namespace Xenophyte_Lib.Utility
 {
     public class ClassUtility
     {

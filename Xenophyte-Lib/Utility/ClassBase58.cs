@@ -4,9 +4,9 @@ using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
 using System.Security.Cryptography;
-using SeguraChain_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Blockchain.Setting;
 
-namespace SeguraChain_Lib.Utility
+namespace Xenophyte_Lib.Utility
 {
     public class ClassBase58
     {

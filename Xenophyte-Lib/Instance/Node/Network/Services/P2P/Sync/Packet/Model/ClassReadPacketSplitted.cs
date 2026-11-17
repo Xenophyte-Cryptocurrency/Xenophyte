@@ -1,6 +1,6 @@
-﻿using SeguraChain_Lib.Other.Object.List;
+﻿using Xenophyte_Lib.Other.Object.List;
 
-namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.Packet.Model
+namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.Packet.Model
 {
     /// <summary>
     /// Store packet data and set complete status once the packet separator is received.

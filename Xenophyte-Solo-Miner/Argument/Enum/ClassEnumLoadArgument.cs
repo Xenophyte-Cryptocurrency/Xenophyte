@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Solo_Miner.Argument.Enum
+﻿namespace Xenophyte_Solo_Miner.Argument.Enum
 {
     public enum ClassEnumLoadArgument
     {

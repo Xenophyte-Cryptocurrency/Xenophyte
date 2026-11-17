@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Lib.Blockchain.Checkpoint.Enum
+﻿namespace Xenophyte_Lib.Blockchain.Checkpoint.Enum
 {
     public enum ClassCheckpointEnumType
     {

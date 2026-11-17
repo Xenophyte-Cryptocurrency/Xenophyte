@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_IO_Cache_Network_System.Command.Enum
+﻿namespace Xenophyte_IO_Cache_Network_System.Command.Enum
 {
     public class ClassCommandLineEnum
     {

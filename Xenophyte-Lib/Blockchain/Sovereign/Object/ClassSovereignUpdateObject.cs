@@ -1,6 +1,6 @@
-﻿using SeguraChain_Lib.Blockchain.Sovereign.Enum;
+﻿using Xenophyte_Lib.Blockchain.Sovereign.Enum;
 
-namespace SeguraChain_Lib.Blockchain.Sovereign.Object
+namespace Xenophyte_Lib.Blockchain.Sovereign.Object
 {
     /// <summary>
     /// The content can differ depending the type of the update.

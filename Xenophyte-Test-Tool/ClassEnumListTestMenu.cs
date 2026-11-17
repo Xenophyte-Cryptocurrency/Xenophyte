@@ -1,4 +1,4 @@
-﻿namespace SeguraChain_Test_Tool
+﻿namespace Xenophyte_Test_Tool
 {
     public enum EnumListTestMenu
     {

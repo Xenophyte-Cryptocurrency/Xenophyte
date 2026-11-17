@@ -1,16 +1,16 @@
 ﻿using System;
 using System.Numerics;
 using System.Security.Cryptography;
-using SeguraChain_Lib.Algorithm;
-using SeguraChain_Lib.Blockchain.Mining.Enum;
-using SeguraChain_Lib.Blockchain.Mining.Object;
-using SeguraChain_Lib.Blockchain.Setting;
-using SeguraChain_Lib.Blockchain.Wallet.Function;
-using SeguraChain_Lib.Other.Object.Math;
-using SeguraChain_Lib.Other.Object.SHA3;
-using SeguraChain_Lib.Utility;
+using Xenophyte_Lib.Algorithm;
+using Xenophyte_Lib.Blockchain.Mining.Enum;
+using Xenophyte_Lib.Blockchain.Mining.Object;
+using Xenophyte_Lib.Blockchain.Setting;
+using Xenophyte_Lib.Blockchain.Wallet.Function;
+using Xenophyte_Lib.Other.Object.Math;
+using Xenophyte_Lib.Other.Object.SHA3;
+using Xenophyte_Lib.Utility;
 
-namespace SeguraChain_Lib.Blockchain.Mining.Function
+namespace Xenophyte_Lib.Blockchain.Mining.Function
 {
     /// <summary>
     /// The mining PoWaC (Proof of Compatibility) class. A combinaison of PoW and Compatibility with block tx data count.
