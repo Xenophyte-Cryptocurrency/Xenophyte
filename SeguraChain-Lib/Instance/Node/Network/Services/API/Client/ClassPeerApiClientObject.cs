@@ -142,7 +142,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.API.Client
 
                         while (continueReading && ClientConnectionStatus)
                         {
-                            using (ReadPacketData readPacketData = await _clientSocket.TryReadPacketData(
+                            using (ReadPacketData readPacketData = await _clientSocket.TryReadPacketHttpData(
                                        _peerNetworkSettingObject.PeerMaxPacketBufferSize,
                                        _peerNetworkSettingObject.PeerMaxDelayAwaitResponse * 1000,
                                        true,
@@ -1399,7 +1399,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.API.Client
             Buffer.BlockCopy(headerBytes, 0, dataCompleted, 0, headerBytes.Length);
             Buffer.BlockCopy(bodyBytes, 0, dataCompleted, headerBytes.Length, bodyBytes.Length);
 
-            bool sendResult = await _clientSocket.SendRawAsync(
+            bool sendResult = await _clientSocket.SendHttpRawAsync(
                 dataCompleted,
                 _cancellationTokenApiClient.Token);
 
@@ -1429,7 +1429,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.API.Client
             if (bodyBytes.Length > 0)
                 Buffer.BlockCopy(bodyBytes, 0, dataCompleted, headerBytes.Length, bodyBytes.Length);
 
-            bool sendResult = await _clientSocket.SendRawAsync(
+            bool sendResult = await _clientSocket.SendHttpRawAsync(
                 dataCompleted,
                 _cancellationTokenApiClient.Token);
 

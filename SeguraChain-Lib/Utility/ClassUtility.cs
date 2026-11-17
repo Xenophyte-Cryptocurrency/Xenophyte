@@ -1347,8 +1347,8 @@ namespace SeguraChain_Lib.Utility
                     packetBytesToSend,
                     0,
                     packetBytesToSend.Length,
-                    cancellationToken).ConfigureAwait(false);
-                await networkStream.FlushAsync(cancellationToken).ConfigureAwait(false);
+                    cancellationToken);
+                await networkStream.FlushAsync(cancellationToken);
                 return true;
             }
             catch

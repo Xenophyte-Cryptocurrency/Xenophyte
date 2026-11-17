@@ -271,14 +271,14 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Cli
                     {
                         BinaryPacket binaryPacket = await _clientSocket.ReceiveBinaryPacketAsync(
                             _peerNetworkSettingObject.PeerMaxDelayAwaitResponse * 1000,
-                            _cancellationTokenListenPeerPacket.Token).ConfigureAwait(false);
+                            _cancellationTokenListenPeerPacket.Token);
 
-                        if (binaryPacket == null || binaryPacket.Payload == null || binaryPacket.Payload.Length == 0)
+                        if (binaryPacket == null || binaryPacket.Data == null || binaryPacket.Data.Length == 0)
                             break;
 
                         ClientPeerLastPacketReceived = TaskManager.TaskManager.CurrentTimestampMillisecond + _peerNetworkSettingObject.PeerServerPacketDelay;
                         _onSendingPacketResponse = true;
-                        byte[] packetPayload = binaryPacket.Payload;
+                        byte[] packetPayload = binaryPacket.Data;
                         _onHandlePacketResponse = true;
 
                         try

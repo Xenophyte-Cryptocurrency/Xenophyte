@@ -305,9 +305,9 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Cli
             {
                 BinaryPacket binaryPacket = await _peerSocketClient.ReceiveBinaryPacketAsync(
                     _peerNetworkSetting.PeerApiMaxConnectionDelay * 1000,
-                    _peerCancellationTokenMain.Token).ConfigureAwait(false);
+                    _peerCancellationTokenMain.Token);
 
-                if (binaryPacket == null || binaryPacket.Payload == null || binaryPacket.Payload.Length == 0)
+                if (binaryPacket == null || binaryPacket.Data == null || binaryPacket.Data.Length == 0)
                     break;
 
                 ClassPeerCheckManager.UpdatePeerClientLastPacketReceived(
@@ -315,7 +315,7 @@ namespace SeguraChain_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Cli
                     TaskManager.TaskManager.CurrentTimestampSecond, _peerCancellationTokenMain);
 
                 ClassPeerPacketRecvObject peerPacketReceived =
-                    new ClassPeerPacketRecvObject(binaryPacket.Payload, out bool status);
+                    new ClassPeerPacketRecvObject(binaryPacket.Data, out bool status);
 
                 if (!status || peerPacketReceived == null)
                 {
