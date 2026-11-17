@@ -3,19 +3,19 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.31025.194
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SeguraChain-Lib", "SeguraChain-Lib\SeguraChain-Lib.csproj", "{8CE0B792-0E5E-48D6-BD20-E713C6DEA758}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xenophyte-Lib", "Xenophyte-Lib\Xenophyte-Lib.csproj", "{8CE0B792-0E5E-48D6-BD20-E713C6DEA758}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SeguraChain-Peer", "SeguraChain-Peer\SeguraChain-Peer.csproj", "{CF9518C1-1B03-4DCC-9160-B1B9A293101C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xenophyte-Peer", "Xenophyte-Peer\Xenophyte-Peer.csproj", "{CF9518C1-1B03-4DCC-9160-B1B9A293101C}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SeguraChain-Test-Tool", "SeguraChain-Test-Tool\SeguraChain-Test-Tool.csproj", "{EC5DDB05-8A86-4EDF-A474-6C00B43F8DF2}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xenophyte-Test-Tool", "Xenophyte-Test-Tool\Xenophyte-Test-Tool.csproj", "{EC5DDB05-8A86-4EDF-A474-6C00B43F8DF2}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SeguraChain-Solo-Miner", "SeguraChain-Solo-Miner\SeguraChain-Solo-Miner.csproj", "{2218F60B-9080-4F81-ADFC-6E1619ABA8BB}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xenophyte-Solo-Miner", "Xenophyte-Solo-Miner\Xenophyte-Solo-Miner.csproj", "{2218F60B-9080-4F81-ADFC-6E1619ABA8BB}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SeguraChain-Desktop-Wallet", "SeguraChain-Desktop-Wallet\SeguraChain-Desktop-Wallet.csproj", "{DD390427-D159-487D-80DC-6DD8C062AFB8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xenophyte-Desktop-Wallet", "Xenophyte-Desktop-Wallet\Xenophyte-Desktop-Wallet.csproj", "{DD390427-D159-487D-80DC-6DD8C062AFB8}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SeguraChain-RPC-Wallet", "SeguraChain-RPC-Wallet\SeguraChain-RPC-Wallet.csproj", "{EF943935-A2A6-4409-BB8B-EE9B41C3D17F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Xenophyte-RPC-Wallet", "Xenophyte-RPC-Wallet\Xenophyte-RPC-Wallet.csproj", "{EF943935-A2A6-4409-BB8B-EE9B41C3D17F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SeguraChain-IO-Cache-Network-System", "SeguraChain-IO-Cache-Network-System\SeguraChain-IO-Cache-Network-System.csproj", "{790ABB1E-E5E3-4A29-A616-A5A77E950E66}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Xenophyte-IO-Cache-Network-System", "Xenophyte-IO-Cache-Network-System\Xenophyte-IO-Cache-Network-System.csproj", "{790ABB1E-E5E3-4A29-A616-A5A77E950E66}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
