@@ -57,6 +57,9 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Clien
         // The legacy packet protocol is a byte stream: concurrent writes can
         // interleave packet fragments and corrupt framing.
         private readonly SemaphoreSlim _peerSendLock = new SemaphoreSlim(1, 1);
+        private readonly object _peerResponseLock = new object();
+        private Task _peerReceiveTask;
+        private TaskCompletionSource<bool> _peerPendingResponse;
         private int _binaryPacketId;
 
         /// <summary>
@@ -195,8 +198,23 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Clien
 
             #endregion
 
-            #region Send packet and wait packet response.
+            // Keep exactly one reader on the TCP stream for the lifetime of this
+            // client connection. Responses to requests and keep-alive traffic are
+            // demultiplexed by that reader instead of competing for NetworkStream.
+            await EnsurePeerReceiveLoop().ConfigureAwait(false);
+            if (_peerReceiveTask == null || !PeerConnectStatus)
+                return false;
 
+            TaskCompletionSource<bool> pendingResponse = null;
+            if (!broadcast)
+            {
+                pendingResponse = new TaskCompletionSource<bool>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                lock (_peerResponseLock)
+                    _peerPendingResponse = pendingResponse;
+            }
+
+            #region Send packet and wait packet response.
 
             if (!await SendPeerPacket(packetData, _peerCancellationTokenMain))
             {
@@ -204,11 +222,16 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Clien
                 Debug.WriteLine("Failed to send packet data to " + PeerIpTarget + ":" + PeerPortTarget);
 #endif
                 ClassPeerCheckManager.InputPeerClientNoPacketConnectionOpened(_peerDatabase, PeerIpTarget, PeerUniqueIdTarget, _peerNetworkSetting, _peerFirewallSettingObject, _peerCancellationTokenMain);
+                lock (_peerResponseLock)
+                {
+                    if (ReferenceEquals(_peerPendingResponse, pendingResponse))
+                        _peerPendingResponse = null;
+                }
                 DisconnectFromTarget();
                 return false;
             }
             else
-                return broadcast ? true : await WaitPacketExpected();
+                return broadcast ? true : await WaitPacketExpected(pendingResponse);
 
             #endregion
 
@@ -224,6 +247,8 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Clien
             PeerPacketTypeReceived = ClassPeerEnumPacketResponse.NONE;
             PeerPacketReceived = null;
             PeerPacketReceivedStatus = false;
+            lock (_peerResponseLock)
+                _peerPendingResponse = null;
             CancelKeepAlive();
             try
             {
@@ -262,32 +287,41 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Clien
         /// Wait the packet expected.
         /// </summary>
         /// <returns></returns>
-        private async Task<bool> WaitPacketExpected()
+        private async Task<bool> WaitPacketExpected(TaskCompletionSource<bool> pendingResponse)
         {
-            CancelHandlePacket();
+            if (pendingResponse == null)
+                return false;
 
+            int timeoutMilliseconds = Math.Max(1, _peerNetworkSetting.PeerApiMaxConnectionDelay) * 1000;
+            Task completed = await Task.WhenAny(
+                pendingResponse.Task,
+                Task.Delay(timeoutMilliseconds, _peerCancellationTokenMain.Token));
 
-            PeerTaskStatus = true;
-
-            await TaskWaitPeerPacketResponse();
-
-            if (PeerPacketReceived == null)
+            if (completed != pendingResponse.Task ||
+                _peerCancellationTokenMain.IsCancellationRequested)
             {
+                lock (_peerResponseLock)
+                {
+                    if (ReferenceEquals(_peerPendingResponse, pendingResponse))
+                        _peerPendingResponse = null;
+                }
+
 #if DEBUG
-                Debug.WriteLine("Peer " + PeerIpTarget + "|" + PeerUniqueIdTarget + " don't send a response to the packet sent: " + System.Enum.GetName(typeof(ClassPeerEnumPacketResponse), PacketResponseExpected)+" | " + System.Enum.GetName(typeof(ClassPeerEnumPacketResponse), PeerPacketTypeReceived));
+                Debug.WriteLine("Peer " + PeerIpTarget + " timed out waiting for " +
+                    System.Enum.GetName(typeof(ClassPeerEnumPacketResponse), PacketResponseExpected));
 #endif
-                ClassLog.WriteLine("Peer " + PeerIpTarget + "|" + PeerUniqueIdTarget + " don't send a response to the packet sent: " + System.Enum.GetName(typeof(ClassPeerEnumPacketResponse), PacketResponseExpected) + " | " + System.Enum.GetName(typeof(ClassPeerEnumPacketResponse), PeerPacketTypeReceived), ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_LOWEST_PRIORITY, true);
-                return PeerPacketReceivedStatus;
-            }
-            else
-            {
-
                 if (!_keepAlive)
                     DisconnectFromTarget();
-                else // Enable keep alive.
-                    TaskEnablePeerPacketKeepAlive();
-
+                return false;
             }
+
+            if (!PeerPacketReceivedStatus || PeerPacketReceived == null)
+                return false;
+
+            if (!_keepAlive)
+                DisconnectFromTarget();
+            else
+                TaskEnablePeerPacketKeepAlive();
 
             return true;
         }
@@ -299,20 +333,55 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Clien
         /// <summary>
         /// Task in waiting a packet of response sent by the peer target.
         /// </summary>
-        private async Task TaskWaitPeerPacketResponse()
+        private async Task EnsurePeerReceiveLoop()
         {
-            while (PeerConnectStatus && !_peerCancellationTokenMain.IsCancellationRequested)
+            // TrySendPacketToPeerTarget replaces the operation token between
+            // requests. Let the previous reader observe cancellation before a new
+            // reader is started on the same NetworkStream.
+            if (_peerReceiveTask != null && !_peerReceiveTask.IsCompleted)
+            {
+                try { await _peerReceiveTask.ConfigureAwait(false); }
+                catch { /* The receive loop reports socket failures itself. */ }
+            }
+
+            if (_peerCancellationTokenMain == null ||
+                _peerCancellationTokenMain.IsCancellationRequested ||
+                !PeerConnectStatus)
+                return;
+
+            CancellationTokenSource receiveCancellation = _peerCancellationTokenMain;
+            _peerReceiveTask = Task.Run(() => TaskWaitPeerPacketResponse(receiveCancellation));
+        }
+
+        /// <summary>
+        /// The sole reader for this peer socket. It remains active while the
+        /// connection is kept alive, so unsolicited keep-alive replies cannot
+        /// remain queued in front of the next request/response exchange.
+        /// </summary>
+        private async Task TaskWaitPeerPacketResponse(CancellationTokenSource receiveCancellation)
+        {
+            CancellationToken cancellationToken = receiveCancellation.Token;
+            while (!cancellationToken.IsCancellationRequested && PeerConnectStatus)
             {
                 BinaryPacket binaryPacket = await _peerSocketClient.ReceiveBinaryPacketAsync(
                     _peerNetworkSetting.PeerApiMaxConnectionDelay * 1000,
-                    _peerCancellationTokenMain.Token);
+                    cancellationToken).ConfigureAwait(false);
 
-                if (binaryPacket == null || binaryPacket.Data == null || binaryPacket.Data.Length == 0)
-                    break;
+                if (binaryPacket == null)
+                {
+                    // Receive timeout before the first byte is recoverable. A real
+                    // disconnect is detected by IsConnected() and exits the loop.
+                    if (cancellationToken.IsCancellationRequested || !PeerConnectStatus)
+                        break;
+                    continue;
+                }
+
+                if (binaryPacket.Data == null || binaryPacket.Data.Length == 0)
+                    continue;
 
                 ClassPeerCheckManager.UpdatePeerClientLastPacketReceived(
                     _peerDatabase, PeerIpTarget, PeerUniqueIdTarget,
-                    TaskManager.TaskManager.CurrentTimestampSecond, _peerCancellationTokenMain);
+                    TaskManager.TaskManager.CurrentTimestampSecond, receiveCancellation);
 
                 ClassPeerPacketRecvObject peerPacketReceived =
                     new ClassPeerPacketRecvObject(binaryPacket.Data, out bool status);
@@ -322,38 +391,48 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Clien
 #if DEBUG
                     Debug.WriteLine("Can't build binary packet data from: " + _peerSocketClient.GetIp);
 #endif
+                    _peerSocketClient.Kill(SocketShutdown.Both);
                     break;
                 }
 
                 PeerPacketTypeReceived = peerPacketReceived.PacketOrder;
+                TaskCompletionSource<bool> pending;
+                lock (_peerResponseLock)
+                    pending = _peerPendingResponse;
 
-                if (peerPacketReceived.PacketOrder == PacketResponseExpected)
+                bool isRequestResponse = pending != null &&
+                    (peerPacketReceived.PacketOrder == PacketResponseExpected ||
+                     peerPacketReceived.PacketOrder == ClassPeerEnumPacketResponse.NOT_YET_SYNCED ||
+                     peerPacketReceived.PacketOrder == ClassPeerEnumPacketResponse.SEND_MISSING_AUTH_KEYS);
+
+                if (isRequestResponse)
                 {
-                    PeerPacketReceivedStatus = true;
-                    if (_peerDatabase.ContainsPeerUniqueId(PeerIpTarget, PeerUniqueIdTarget, _peerCancellationTokenMain))
-                        _peerDatabase[PeerIpTarget, PeerUniqueIdTarget, _peerCancellationTokenMain].PeerTimestampSignatureWhitelist = peerPacketReceived.PeerLastTimestampSignatureWhitelist;
+                    if (peerPacketReceived.PacketOrder == PacketResponseExpected &&
+                        _peerDatabase.ContainsPeerUniqueId(PeerIpTarget, PeerUniqueIdTarget, receiveCancellation))
+                    {
+                        _peerDatabase[PeerIpTarget, PeerUniqueIdTarget, receiveCancellation]
+                            .PeerTimestampSignatureWhitelist = peerPacketReceived.PeerLastTimestampSignatureWhitelist;
+                    }
+
                     PeerPacketReceived = peerPacketReceived;
-                }
-                else if (peerPacketReceived.PacketOrder == ClassPeerEnumPacketResponse.NOT_YET_SYNCED ||
-                         peerPacketReceived.PacketOrder == ClassPeerEnumPacketResponse.SEND_MISSING_AUTH_KEYS)
-                {
-                    // Valid protocol responses must be exposed to the caller even when
-                    // they differ from the expected packet order.
                     PeerPacketReceivedStatus = true;
-                    PeerPacketReceived = peerPacketReceived;
+
+                    lock (_peerResponseLock)
+                    {
+                        if (ReferenceEquals(_peerPendingResponse, pending))
+                            _peerPendingResponse = null;
+                    }
+                    pending.TrySetResult(true);
                 }
-                else if (peerPacketReceived.PacketOrder != ClassPeerEnumPacketResponse.NOT_YET_SYNCED &&
-                         PacketResponseExpected == ClassPeerEnumPacketResponse.SEND_BLOCK_DATA)
+                else if (PacketResponseExpected == ClassPeerEnumPacketResponse.SEND_BLOCK_DATA)
                 {
 #if DEBUG
-                    Debug.WriteLine("Invalid packet data received: " + JsonConvert.SerializeObject(peerPacketReceived));
+                    Debug.WriteLine("Unexpected packet data received: " + JsonConvert.SerializeObject(peerPacketReceived));
 #endif
                     ClassPeerCheckManager.InputPeerClientInvalidPacket(
                         _peerDatabase, PeerIpTarget, PeerUniqueIdTarget,
-                        _peerNetworkSetting, _peerFirewallSettingObject, _peerCancellationTokenMain);
+                        _peerNetworkSetting, _peerFirewallSettingObject, receiveCancellation);
                 }
-
-                break;
             }
 
             PeerTaskStatus = false;

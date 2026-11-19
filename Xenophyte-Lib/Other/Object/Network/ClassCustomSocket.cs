@@ -226,6 +226,11 @@ namespace Xenophyte_Lib.Other.Object.Network
                 if (!_socket.Connected)
                     return false;
 
+                // Socket.Connected is only the status observed by the last I/O
+                // operation. Poll + Available also detects a graceful remote close.
+                if (_socket.Poll(0, SelectMode.SelectRead) && _socket.Available == 0)
+                    return false;
+
                 return true;
             }
             catch
