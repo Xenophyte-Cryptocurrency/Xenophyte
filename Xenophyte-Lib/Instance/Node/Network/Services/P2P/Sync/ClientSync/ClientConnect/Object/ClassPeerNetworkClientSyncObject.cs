@@ -334,10 +334,13 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Clien
                         _peerDatabase[PeerIpTarget, PeerUniqueIdTarget, _peerCancellationTokenMain].PeerTimestampSignatureWhitelist = peerPacketReceived.PeerLastTimestampSignatureWhitelist;
                     PeerPacketReceived = peerPacketReceived;
                 }
-                else if (peerPacketReceived.PacketOrder != ClassPeerEnumPacketResponse.NOT_YET_SYNCED &&
+                else if (peerPacketReceived.PacketOrder == ClassPeerEnumPacketResponse.NOT_YET_SYNCED ||
                          peerPacketReceived.PacketOrder == ClassPeerEnumPacketResponse.SEND_MISSING_AUTH_KEYS)
                 {
+                    // Valid protocol responses must be exposed to the caller even when
+                    // they differ from the expected packet order.
                     PeerPacketReceivedStatus = true;
+                    PeerPacketReceived = peerPacketReceived;
                 }
                 else if (peerPacketReceived.PacketOrder != ClassPeerEnumPacketResponse.NOT_YET_SYNCED &&
                          PacketResponseExpected == ClassPeerEnumPacketResponse.SEND_BLOCK_DATA)

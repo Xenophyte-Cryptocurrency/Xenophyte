@@ -27,6 +27,19 @@ namespace Xenophyte_Lib.Other.Object.Network
         private readonly SemaphoreSlim _binaryReceiveLock =
             new SemaphoreSlim(1, 1);
 
+        // Reused scratch buffers. ReceiveBinaryPacketAsync holds _binaryReceiveLock
+        // for the complete logical packet, so these arrays cannot be used concurrently.
+        private readonly byte[] _binaryReceiveHeaderBuffer = new byte[BinaryHeaderSize];
+        private readonly byte[] _binaryReceiveMetadataBuffer = new byte[BinaryFragmentMetadataSize];
+
+        // Tracks actual TCP consumption for one receive operation. A timeout while
+        // waiting for the first byte is recoverable; a timeout after consuming bytes
+        // leaves the framed stream position unknown and requires closing the socket.
+        private sealed class ReceiveProgress
+        {
+            public bool BytesConsumed;
+        }
+
         public bool Closed { private set; get; }
 
         // ============================================================
@@ -357,99 +370,168 @@ namespace Xenophyte_Lib.Other.Object.Network
                 return null;
 
             bool lockTaken = false;
-            bool readingStarted = false;
+            ReceiveProgress progress = new ReceiveProgress();
+
             using (CancellationTokenSource timeout = timeoutMilliseconds > 0
                 ? new CancellationTokenSource(timeoutMilliseconds)
                 : new CancellationTokenSource())
-            using (CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(
-                cancellationToken, timeout.Token))
+            using (CancellationTokenSource linked =
+                CancellationTokenSource.CreateLinkedTokenSource(
+                    cancellationToken, timeout.Token))
             {
                 try
                 {
                     await _binaryReceiveLock.WaitAsync(linked.Token);
                     lockTaken = true;
-                    if (Closed || _networkStream == null) return null;
 
-                    BinaryPacket first = await ReadBinaryFrameNoLock(linked.Token, () => readingStarted = true);
-                    if (first == null) return null;
+                    if (Closed || _networkStream == null)
+                        return null;
 
-                    if ((first.Flags & BinaryFragmentFlag) == 0)
-                        return first;
+                    // Read the first frame header without allocating a frame payload.
+                    // Do not mark the stream as consumed until ReadAsync actually
+                    // returns bytes: an idle timeout must not destroy a healthy peer.
+                    byte[] header = _binaryReceiveHeaderBuffer;
+                    await ReadExactlyAsync(header, linked.Token, progress);
+                    ValidateBinaryHeader(header);
 
-                    if (first.Data == null || first.Data.Length < BinaryFragmentMetadataSize)
-                        throw new InvalidDataException("Invalid XENO fragment metadata.");
+                    byte command = header[5];
+                    ushort flags = ReadUInt16LE(header, 6);
+                    uint packetId = ReadUInt32LE(header, 8);
+                    uint frameLength = ReadUInt32LE(header, 12);
 
-                    uint logicalPacketId = ReadUInt32LE(first.Data, 0);
-                    uint fragmentCount = ReadUInt32LE(first.Data, 8);
-                    uint totalLength = ReadUInt32LE(first.Data, 12);
+                    if ((flags & BinaryFragmentFlag) == 0)
+                    {
+                        byte[] payload = new byte[(int)frameLength];
+                        if (payload.Length > 0)
+                            await ReadExactlyAsync(payload, linked.Token, progress);
+
+                        return new BinaryPacket
+                        {
+                            Command = command,
+                            Flags = flags,
+                            PacketId = packetId,
+                            Data = payload
+                        };
+                    }
+
+                    // Fragmented packet: read metadata separately, then stream each
+                    // fragment directly into the final buffer (no per-fragment arrays).
+                    if (frameLength < BinaryFragmentMetadataSize)
+                        throw new InvalidDataException("Invalid XENO fragment metadata length.");
+
+                    byte[] metadata = _binaryReceiveMetadataBuffer;
+                    await ReadExactlyAsync(metadata, linked.Token, progress);
+
+                    uint logicalPacketId = ReadUInt32LE(metadata, 0);
+                    uint fragmentIndex = ReadUInt32LE(metadata, 4);
+                    uint fragmentCount = ReadUInt32LE(metadata, 8);
+                    uint totalLength = ReadUInt32LE(metadata, 12);
                     int maximumLogicalDataSize = MaximumLogicalDataSize;
-                    if (logicalPacketId != first.PacketId || fragmentCount < 1 || fragmentCount > 65535 ||
+
+                    if (logicalPacketId != packetId || fragmentIndex != 0 ||
+                        fragmentCount < 1 || fragmentCount > 65535 ||
                         maximumLogicalDataSize <= 0 ||
                         maximumLogicalDataSize > 256 * 1024 * 1024 ||
-                        totalLength == 0 || totalLength > maximumLogicalDataSize ||
-                        ReadUInt32LE(first.Data, 4) != 0)
+                        totalLength == 0 || totalLength > (uint)maximumLogicalDataSize ||
+                        totalLength > int.MaxValue)
                         throw new InvalidDataException("Invalid XENO first fragment.");
 
-                    int expectedCount = ((int)totalLength + BinaryFragmentDataSize - 1) / BinaryFragmentDataSize;
-                    if (fragmentCount != expectedCount)
+                    int totalBytes = (int)totalLength;
+                    int expectedCount = (totalBytes + BinaryFragmentDataSize - 1) /
+                                        BinaryFragmentDataSize;
+                    if (fragmentCount != (uint)expectedCount)
                         throw new InvalidDataException("Inconsistent XENO fragment count.");
 
-                    byte[] assembled = new byte[(int)totalLength];
-                    int firstDataLength = first.Data.Length - BinaryFragmentMetadataSize;
-                    int expectedFirstDataLength = System.Math.Min(BinaryFragmentDataSize, assembled.Length);
-                    if (firstDataLength != expectedFirstDataLength)
+                    byte[] assembled = new byte[totalBytes];
+                    int firstPayloadLength = totalBytes < BinaryFragmentDataSize
+                        ? totalBytes : BinaryFragmentDataSize;
+                    if (frameLength != (uint)(BinaryFragmentMetadataSize + firstPayloadLength))
                         throw new InvalidDataException("Invalid XENO first fragment length.");
-                    Buffer.BlockCopy(first.Data, BinaryFragmentMetadataSize, assembled, 0, firstDataLength);
-                    int assembledLength = firstDataLength;
+
+                    await ReadExactlyAsync(assembled, 0, firstPayloadLength, linked.Token, progress);
+                    int assembledLength = firstPayloadLength;
 
                     for (uint index = 1; index < fragmentCount; index++)
                     {
-                        BinaryPacket next = await ReadBinaryFrameNoLock(linked.Token, () => readingStarted = true);
-                        if (next == null || next.Command != first.Command || next.PacketId != first.PacketId ||
-                            (next.Flags & BinaryFragmentFlag) == 0 ||
-                            (next.Flags & ~BinaryFragmentFlag) != (first.Flags & ~BinaryFragmentFlag) ||
-                            next.Data == null || next.Data.Length < BinaryFragmentMetadataSize ||
-                            ReadUInt32LE(next.Data, 0) != logicalPacketId ||
-                            ReadUInt32LE(next.Data, 4) != index ||
-                            ReadUInt32LE(next.Data, 8) != fragmentCount ||
-                            ReadUInt32LE(next.Data, 12) != totalLength)
-                            throw new InvalidDataException("Out-of-order or inconsistent XENO fragment.");
+                        // Every fragment starts with its own fixed-size header.
+                        await ReadExactlyAsync(header, linked.Token, progress);
+                        ValidateBinaryHeader(header);
 
-                        int dataLength = next.Data.Length - BinaryFragmentMetadataSize;
-                        int expectedDataLength = System.Math.Min(BinaryFragmentDataSize, assembled.Length - assembledLength);
-                        if (dataLength != expectedDataLength || dataLength <= 0)
-                            throw new InvalidDataException("Invalid XENO fragment Data length.");
-                        Buffer.BlockCopy(next.Data, BinaryFragmentMetadataSize, assembled, assembledLength, dataLength);
-                        assembledLength += dataLength;
+                        uint nextFrameLength = ReadUInt32LE(header, 12);
+                        int remaining = totalBytes - assembledLength;
+                        int expectedPayloadLength = remaining < BinaryFragmentDataSize
+                            ? remaining : BinaryFragmentDataSize;
+
+                        if (header[5] != command ||
+                            ReadUInt32LE(header, 8) != packetId ||
+                            (ReadUInt16LE(header, 6) & BinaryFragmentFlag) == 0 ||
+                            (ReadUInt16LE(header, 6) & ~BinaryFragmentFlag) !=
+                                (flags & ~BinaryFragmentFlag) ||
+                            nextFrameLength != (uint)(BinaryFragmentMetadataSize + expectedPayloadLength))
+                            throw new InvalidDataException("Invalid or out-of-order XENO fragment header.");
+
+                        await ReadExactlyAsync(metadata, linked.Token, progress);
+                        if (ReadUInt32LE(metadata, 0) != logicalPacketId ||
+                            ReadUInt32LE(metadata, 4) != index ||
+                            ReadUInt32LE(metadata, 8) != fragmentCount ||
+                            ReadUInt32LE(metadata, 12) != totalLength)
+                            throw new InvalidDataException("Inconsistent XENO fragment metadata.");
+
+                        await ReadExactlyAsync(
+                            assembled, assembledLength, expectedPayloadLength, linked.Token, progress);
+                        assembledLength += expectedPayloadLength;
                     }
 
-                    if (assembledLength != assembled.Length)
+                    if (assembledLength != totalBytes)
                         throw new InvalidDataException("Incomplete XENO logical packet.");
 
                     return new BinaryPacket
                     {
-                        Command = first.Command,
-                        Flags = (ushort)(first.Flags & ~BinaryFragmentFlag),
-                        PacketId = first.PacketId,
+                        Command = command,
+                        Flags = (ushort)(flags & ~BinaryFragmentFlag),
+                        PacketId = packetId,
                         Data = assembled
                     };
                 }
                 catch (OperationCanceledException)
                 {
-                    if (readingStarted) Close(SocketShutdown.Both);
+                    // Once bytes have been consumed, the TCP stream cannot safely be
+                    // reused because the next byte may belong to a partial frame.
+                    if (progress.BytesConsumed)
+                        Close(SocketShutdown.Both);
                     return null;
                 }
                 catch (Exception error)
                 {
+#if DEBUG
                     Debug.WriteLine("XENO binary receive error from " + GetIp + " | " + error.Message);
-                    if (readingStarted) Close(SocketShutdown.Both);
+#endif
+                    if (progress.BytesConsumed)
+                        Close(SocketShutdown.Both);
                     return null;
                 }
                 finally
                 {
-                    if (lockTaken) _binaryReceiveLock.Release();
+                    if (lockTaken)
+                        _binaryReceiveLock.Release();
                 }
             }
+        }
+
+        private static void ValidateBinaryHeader(byte[] header)
+        {
+            if (header == null || header.Length != BinaryHeaderSize)
+                throw new InvalidDataException("Invalid XENO packet header.");
+
+            if (ReadUInt32LE(header, 0) != BinaryPacketMagic)
+                throw new InvalidDataException("Invalid XENO packet magic.");
+
+            if (header[4] != BinaryProtocolVersion)
+                throw new InvalidDataException("Unsupported XENO protocol version.");
+
+            uint dataLength = ReadUInt32LE(header, 12);
+            if (dataLength > BinaryMaximumFrameDataSize)
+                throw new InvalidDataException("XENO frame exceeds maximum allowed size.");
         }
 
         private async Task<BinaryPacket> ReadBinaryFrameNoLock(
@@ -492,6 +574,52 @@ namespace Xenophyte_Lib.Other.Object.Network
         /// </summary>
         private async Task ReadExactlyAsync(
             byte[] buffer,
+            CancellationToken cancellationToken,
+            ReceiveProgress progress)
+        {
+            int offset = 0;
+
+            while (offset < buffer.Length)
+            {
+                int received = await _networkStream.ReadAsync(
+                    buffer, offset, buffer.Length - offset, cancellationToken);
+
+                if (received == 0)
+                    throw new EndOfStreamException(
+                        "TCP connection closed during XENO packet reception.");
+
+                progress.BytesConsumed = true;
+                offset += received;
+            }
+        }
+
+        private async Task ReadExactlyAsync(
+            byte[] buffer,
+            int offset,
+            int count,
+            CancellationToken cancellationToken,
+            ReceiveProgress progress)
+        {
+            int end = checked(offset + count);
+            if (buffer == null || offset < 0 || count < 0 || end > buffer.Length)
+                throw new ArgumentOutOfRangeException("Invalid read buffer range.");
+
+            while (offset < end)
+            {
+                int received = await _networkStream.ReadAsync(
+                    buffer, offset, end - offset, cancellationToken);
+
+                if (received == 0)
+                    throw new EndOfStreamException(
+                        "TCP connection closed during XENO packet reception.");
+
+                progress.BytesConsumed = true;
+                offset += received;
+            }
+        }
+
+        private async Task ReadExactlyAsync(
+            byte[] buffer,
             CancellationToken cancellationToken)
         {
             int offset = 0;
@@ -509,6 +637,29 @@ namespace Xenophyte_Lib.Other.Object.Network
                     throw new EndOfStreamException(
                         "TCP connection closed during XENO packet reception.");
                 }
+
+                offset += received;
+            }
+        }
+
+        private async Task ReadExactlyAsync(
+            byte[] buffer,
+            int offset,
+            int count,
+            CancellationToken cancellationToken)
+        {
+            int end = checked(offset + count);
+            if (buffer == null || offset < 0 || count < 0 || end > buffer.Length)
+                throw new ArgumentOutOfRangeException("Invalid read buffer range.");
+
+            while (offset < end)
+            {
+                int received = await _networkStream.ReadAsync(
+                    buffer, offset, end - offset, cancellationToken);
+
+                if (received == 0)
+                    throw new EndOfStreamException(
+                        "TCP connection closed during XENO packet reception.");
 
                 offset += received;
             }
@@ -797,8 +948,9 @@ namespace Xenophyte_Lib.Other.Object.Network
                     SocketOptionName.KeepAlive,
                     true);
 
+                // Use an orderly TCP close instead of an abortive RST close.
                 socket.LingerState =
-                    new LingerOption(true, 0);
+                    new LingerOption(false, 0);
             }
             catch
             {
