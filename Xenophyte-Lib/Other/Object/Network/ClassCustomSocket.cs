@@ -364,8 +364,10 @@ namespace Xenophyte_Lib.Other.Object.Network
         /// - The operation times out or is cancelled.
         /// - An I/O error occurs.
         ///
-        /// If a frame has started but cannot be completed,
-        /// the connection is closed to prevent stream desynchronization.
+        /// timeoutMilliseconds is an inactivity timeout for each socket read,
+        /// not a maximum duration for the complete logical packet.
+        /// If a frame has started but cannot be completed, the connection is closed
+        /// to prevent stream desynchronization.
         /// </summary>
         public async Task<BinaryPacket> ReceiveBinaryPacketAsync(
             int timeoutMilliseconds,
@@ -377,16 +379,17 @@ namespace Xenophyte_Lib.Other.Object.Network
             bool lockTaken = false;
             ReceiveProgress progress = new ReceiveProgress();
 
-            using (CancellationTokenSource timeout = timeoutMilliseconds > 0
-                ? new CancellationTokenSource(timeoutMilliseconds)
-                : new CancellationTokenSource())
+            // The timeout is reset before each individual socket read below.
+            using (CancellationTokenSource timeout = new CancellationTokenSource())
             using (CancellationTokenSource linked =
                 CancellationTokenSource.CreateLinkedTokenSource(
                     cancellationToken, timeout.Token))
             {
                 try
                 {
-                    await _binaryReceiveLock.WaitAsync(linked.Token);
+                    // The receive lock protects the shared header/metadata buffers.
+                    // Do not include lock contention in the peer's network read timeout.
+                    await _binaryReceiveLock.WaitAsync(cancellationToken);
                     lockTaken = true;
 
                     if (Closed || _networkStream == null)
@@ -396,7 +399,7 @@ namespace Xenophyte_Lib.Other.Object.Network
                     // Do not mark the stream as consumed until ReadAsync actually
                     // returns bytes: an idle timeout must not destroy a healthy peer.
                     byte[] header = _binaryReceiveHeaderBuffer;
-                    await ReadExactlyAsync(header, linked.Token, progress);
+                    await ReadExactlyWithIdleTimeoutAsync(header, linked.Token, progress, timeout, timeoutMilliseconds);
                     ValidateBinaryHeader(header);
 
                     byte command = header[5];
@@ -408,7 +411,7 @@ namespace Xenophyte_Lib.Other.Object.Network
                     {
                         byte[] payload = new byte[(int)frameLength];
                         if (payload.Length > 0)
-                            await ReadExactlyAsync(payload, linked.Token, progress);
+                            await ReadExactlyWithIdleTimeoutAsync(payload, linked.Token, progress, timeout, timeoutMilliseconds);
 
                         return new BinaryPacket
                         {
@@ -425,7 +428,7 @@ namespace Xenophyte_Lib.Other.Object.Network
                         throw new InvalidDataException("Invalid XENO fragment metadata length.");
 
                     byte[] metadata = _binaryReceiveMetadataBuffer;
-                    await ReadExactlyAsync(metadata, linked.Token, progress);
+                    await ReadExactlyWithIdleTimeoutAsync(metadata, linked.Token, progress, timeout, timeoutMilliseconds);
 
                     uint logicalPacketId = ReadUInt32LE(metadata, 0);
                     uint fragmentIndex = ReadUInt32LE(metadata, 4);
@@ -453,13 +456,13 @@ namespace Xenophyte_Lib.Other.Object.Network
                     if (frameLength != (uint)(BinaryFragmentMetadataSize + firstPayloadLength))
                         throw new InvalidDataException("Invalid XENO first fragment length.");
 
-                    await ReadExactlyAsync(assembled, 0, firstPayloadLength, linked.Token, progress);
+                    await ReadExactlyWithIdleTimeoutAsync(assembled, 0, firstPayloadLength, linked.Token, progress, timeout, timeoutMilliseconds);
                     int assembledLength = firstPayloadLength;
 
                     for (uint index = 1; index < fragmentCount; index++)
                     {
                         // Every fragment starts with its own fixed-size header.
-                        await ReadExactlyAsync(header, linked.Token, progress);
+                        await ReadExactlyWithIdleTimeoutAsync(header, linked.Token, progress, timeout, timeoutMilliseconds);
                         ValidateBinaryHeader(header);
 
                         uint nextFrameLength = ReadUInt32LE(header, 12);
@@ -475,15 +478,16 @@ namespace Xenophyte_Lib.Other.Object.Network
                             nextFrameLength != (uint)(BinaryFragmentMetadataSize + expectedPayloadLength))
                             throw new InvalidDataException("Invalid or out-of-order XENO fragment header.");
 
-                        await ReadExactlyAsync(metadata, linked.Token, progress);
+                        await ReadExactlyWithIdleTimeoutAsync(metadata, linked.Token, progress, timeout, timeoutMilliseconds);
                         if (ReadUInt32LE(metadata, 0) != logicalPacketId ||
                             ReadUInt32LE(metadata, 4) != index ||
                             ReadUInt32LE(metadata, 8) != fragmentCount ||
                             ReadUInt32LE(metadata, 12) != totalLength)
                             throw new InvalidDataException("Inconsistent XENO fragment metadata.");
 
-                        await ReadExactlyAsync(
-                            assembled, assembledLength, expectedPayloadLength, linked.Token, progress);
+                        await ReadExactlyWithIdleTimeoutAsync(
+                            assembled, assembledLength, expectedPayloadLength,
+                            linked.Token, progress, timeout, timeoutMilliseconds);
                         assembledLength += expectedPayloadLength;
                     }
 
@@ -577,6 +581,65 @@ namespace Xenophyte_Lib.Other.Object.Network
         /// Reads exactly the requested number of bytes.
         /// Does not filter, trim or modify binary data.
         /// </summary>
+        // Binary P2P reads use an inactivity timeout, not a total-packet timeout.
+        // The timer is reset for every socket read, allowing large fragmented packets
+        // to arrive continuously without being rejected merely because they are large.
+        private async Task ReadExactlyWithIdleTimeoutAsync(
+            byte[] buffer,
+            CancellationToken cancellationToken,
+            ReceiveProgress progress,
+            CancellationTokenSource timeout,
+            int timeoutMilliseconds)
+        {
+            int offset = 0;
+
+            while (offset < buffer.Length)
+            {
+                if (timeoutMilliseconds > 0)
+                    timeout.CancelAfter(timeoutMilliseconds);
+
+                int received = await _networkStream.ReadAsync(
+                    buffer, offset, buffer.Length - offset, cancellationToken);
+
+                if (received == 0)
+                    throw new EndOfStreamException(
+                        "TCP connection closed during XENO packet reception.");
+
+                progress.BytesConsumed = true;
+                offset += received;
+            }
+        }
+
+        private async Task ReadExactlyWithIdleTimeoutAsync(
+            byte[] buffer,
+            int offset,
+            int count,
+            CancellationToken cancellationToken,
+            ReceiveProgress progress,
+            CancellationTokenSource timeout,
+            int timeoutMilliseconds)
+        {
+            int end = checked(offset + count);
+            if (buffer == null || offset < 0 || count < 0 || end > buffer.Length)
+                throw new ArgumentOutOfRangeException("Invalid read buffer range.");
+
+            while (offset < end)
+            {
+                if (timeoutMilliseconds > 0)
+                    timeout.CancelAfter(timeoutMilliseconds);
+
+                int received = await _networkStream.ReadAsync(
+                    buffer, offset, end - offset, cancellationToken);
+
+                if (received == 0)
+                    throw new EndOfStreamException(
+                        "TCP connection closed during XENO packet reception.");
+
+                progress.BytesConsumed = true;
+                offset += received;
+            }
+        }
+
         private async Task ReadExactlyAsync(
             byte[] buffer,
             CancellationToken cancellationToken,

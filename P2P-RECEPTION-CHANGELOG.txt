@@ -1,0 +1,13 @@
+P2P reception adjustment
+========================
+
+ClassCustomSocket.ReceiveBinaryPacketAsync now treats the configured timeout
+as an inactivity timeout per NetworkStream.ReadAsync call, rather than as a
+single deadline for the complete logical packet. This avoids timing out a
+large fragmented packet solely because its total transfer duration is long.
+
+The receive lock is acquired using the caller cancellation token; lock wait
+time is not charged against the network inactivity timeout.
+
+The existing XENO binary framing, packet layout, and server dispatch path are
+otherwise preserved. This change does not constitute a full build/test run.

@@ -2499,6 +2499,7 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                 if (!packetSendStatus)
                 {
                     ClassLog.WriteLine(peerIp + ":" + peerPort + " try to retrieve auth keys failed.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_LOWEST_PRIORITY);
+                    ClassPeerCheckManager.InputPeerClientValidPacket(_peerDatabase, peerIp, peerUniqueId, _peerNetworkSettingObject, cancellation);
                     return false;
                 }
 
