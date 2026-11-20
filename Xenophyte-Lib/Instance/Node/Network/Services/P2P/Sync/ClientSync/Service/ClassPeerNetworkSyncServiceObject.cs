@@ -572,7 +572,9 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
 
                 while (_peerSyncStatus)
                 {
-                    if (_peerDatabase.Count > 0)
+                    try
+                    {
+                        if (_peerDatabase.Count > 0)
                     {
                         long lastBlockHeight = ClassBlockchainStats.GetLastBlockHeight();
 
@@ -611,16 +613,19 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                                         {
                                             ClassLog.WriteLine(syncBlockResult.Count + " block(s) synced. Sync now block transaction(s) of them..", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY);
 
-                                            int index = 0;
+                                            int completedCount = 0;
+                                            int scheduledCount = 0;
 
                                             foreach (ClassBlockObject blockObject in syncBlockResult.GetList.Values)
                                             {
                                                 TaskManager.TaskManager.InsertTask(async () =>
                                                 {
-                                                    if (blockObject?.BlockHeight > lastBlockHeightUnlocked)
+                                                    try
                                                     {
-                                                        if (blockObject.BlockStatus == ClassBlockEnumStatus.LOCKED)
-                                                            return;
+                                                        if (blockObject?.BlockHeight > lastBlockHeightUnlocked)
+                                                        {
+                                                            if (blockObject.BlockStatus == ClassBlockEnumStatus.LOCKED)
+                                                                return;
 
                                                         if (blockObject.BlockHeight > BlockchainSetting.GenesisBlockHeight)
                                                         {
@@ -665,17 +670,29 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                                                             ClassLog.WriteLine("The block height: " + blockObject.BlockHeight + " data updated successfully, continue to sync.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Green);
                                                         }
 
+                                                        }
+                                                        else
+                                                            ClassLog.WriteLine("A block object target synced is empty, retry again later.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY);
                                                     }
-                                                    else
-                                                        ClassLog.WriteLine("A block object target synced is empty, retry again later.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY);
-
-                                                    index++;
-
+                                                    catch (OperationCanceledException)
+                                                    {
+                                                        throw;
+                                                    }
+                                                    catch (Exception error)
+                                                    {
+                                                        Debug.WriteLine("Xenophyte block sync task failed: " + error);
+                                                    }
+                                                    finally
+                                                    {
+                                                        // Always release the batch waiter, including early returns and exceptions.
+                                                        Interlocked.Increment(ref completedCount);
+                                                    }
                                                 }, 0, _cancellationTokenServiceSync);
+                                                scheduledCount++;
                                             }
 
-                                            while (index < syncBlockResult.Count)
-                                                await Task.Delay(1000, _cancellationTokenServiceSync.Token);
+                                            while (Volatile.Read(ref completedCount) < scheduledCount)
+                                                await Task.Delay(250, _cancellationTokenServiceSync.Token);
                                         }
                                         else
                                         {
@@ -702,8 +719,17 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                     }
 
 
-                    await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay);
-
+                        await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay, _cancellationTokenServiceSync.Token);
+                    }
+                    catch (OperationCanceledException) when (_cancellationTokenServiceSync.IsCancellationRequested)
+                    {
+                        break;
+                    }
+                    catch (Exception error)
+                    {
+                        Debug.WriteLine("Xenophyte block synchronization loop failed; retrying: " + error);
+                        await Task.Delay(1000, _cancellationTokenServiceSync.Token);
+                    }
                 }
 
             }), 0, _cancellationTokenServiceSync, null, true);
@@ -2499,7 +2525,6 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                 if (!packetSendStatus)
                 {
                     ClassLog.WriteLine(peerIp + ":" + peerPort + " try to retrieve auth keys failed.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_LOWEST_PRIORITY);
-                    ClassPeerCheckManager.InputPeerClientValidPacket(_peerDatabase, peerIp, peerUniqueId, _peerNetworkSettingObject, cancellation);
                     return false;
                 }
 
