@@ -36,7 +36,11 @@ namespace Xenophyte_Lib.TaskManager.Object
         {
             try
             {
-                Task = Task.Factory.StartNew(_action, Cancellation.Token, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default).Unwrap();
+                // Always enter the delegate, even if cancellation was requested while this
+                // task was queued. The linked token is still passed to the operation,
+                // but scheduling with it could prevent the delegate's finally blocks
+                // (including synchronization batch completion counters) from running.
+                Task = Task.Factory.StartNew(_action, CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default).Unwrap();
             }
             catch
             {

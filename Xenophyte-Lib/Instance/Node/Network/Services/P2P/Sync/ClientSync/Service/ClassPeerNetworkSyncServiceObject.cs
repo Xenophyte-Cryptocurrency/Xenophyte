@@ -1,4 +1,4 @@
-﻿using Xenophyte_Lib.Blockchain.Block.Enum;
+using Xenophyte_Lib.Blockchain.Block.Enum;
 using Xenophyte_Lib.Blockchain.Block.Function;
 using Xenophyte_Lib.Blockchain.Block.Object.Structure;
 using Xenophyte_Lib.Blockchain.Database;
@@ -257,13 +257,14 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                             if (!await SendAskAuthPeerKeys(new ClassPeerNetworkClientSyncObject(_peerDatabase, peerIp, peerPort, string.Empty, _peerNetworkSettingObject, _peerFirewallSettingObject), _cancellationTokenServiceSync, true))
                                 ClassLog.WriteLine("Can't send auth keys to default peer: " + peerIp + ":" + peerPort, ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MEDIUM_PRIORITY);
 
-                            totalTaskComplete++;
+                            Interlocked.Increment(ref totalTaskComplete);
                         }), 0, _cancellationTokenServiceSync);
                     }
                 }
 
-                while (totalTaskComplete < totalTaskCount)
-                    await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay);
+                while (Volatile.Read(ref totalTaskComplete) < totalTaskCount &&
+                    !_cancellationTokenServiceSync.IsCancellationRequested)
+                    await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay, _cancellationTokenServiceSync.Token);
             }
         }
 
@@ -354,14 +355,15 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                                             // Ignored.
                                         }
 
-                                        totalTaskComplete++;
+                                        Interlocked.Increment(ref totalTaskComplete);
                                     }), 0, _cancellationTokenServiceSync);
 
                                 }
                             }
 
-                            while (totalTaskComplete < totalTaskCount)
-                                await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay);
+                            while (Volatile.Read(ref totalTaskComplete) < totalTaskCount &&
+                                !_cancellationTokenServiceSync.IsCancellationRequested)
+                                await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay, _cancellationTokenServiceSync.Token);
 
 
 
@@ -447,14 +449,15 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                                     // Ignored.
                                 }
 
-                                totalTaskComplete++;
+                                Interlocked.Increment(ref totalTaskComplete);
                             }), 0, null);
 
                         }
                     }
 
-                    while (totalTaskComplete < totalTaskCount)
-                        await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay);
+                    while (Volatile.Read(ref totalTaskComplete) < totalTaskCount &&
+                        !_cancellationTokenServiceSync.IsCancellationRequested)
+                        await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay, _cancellationTokenServiceSync.Token);
 
 
 
@@ -958,9 +961,7 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                                                         }
                                                         catch (Exception error)
                                                         {
-                                                            if (error is OperationCanceledException)
-                                                                totalTaskDone++;
-
+                                                            // The completion counter is incremented once below, for every outcome.
                                                             ClassLog.WriteLine("Error to check the block height: " + blockHeightToCheck + " | Exception: " + error.Message, ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Red);
 
 #if DEBUG
@@ -972,14 +973,15 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
 
                                                         ClearPeerTargetList(peerTargetList, true);
 
-                                                        totalTaskDone++;
+                                                        Interlocked.Increment(ref totalTaskDone);
 
                                                     }, 0, listCancellationCheckBlock[countCancellation - 1], null, true);
                                                 }
 
-                                                while (totalTaskDone < totalTask &&
+                                                while (Volatile.Read(ref totalTaskDone) < totalTask &&
                                                 totalTime >= TaskManager.TaskManager.CurrentTimestampMillisecond &&
-                                                listCancellationCheckBlock.GetList.Count(x => x.IsCancellationRequested) < listCancellationCheckBlock.Count)
+                                                listCancellationCheckBlock.GetList.Count(x => x.IsCancellationRequested) < listCancellationCheckBlock.Count &&
+                                                !_cancellationTokenServiceSync.IsCancellationRequested)
                                                     await Task.Delay(1000, _cancellationTokenServiceSync.Token);
 
                                                 for (int i = 0; i < listCancellationCheckBlock.Count; i++)
@@ -1123,7 +1125,7 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                         // The peer collection list can change or has been disposed/cleaned.
                     }
 
-                    totalTaskComplete++;
+                    Interlocked.Increment(ref totalTaskComplete);
 
                 }), 0, _cancellationTokenServiceSync);
 
@@ -1133,8 +1135,9 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
             #endregion
 
             // Await the task is complete.
-            while (totalTaskComplete < peerListTarget.Count)
-                await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay);
+            while (Volatile.Read(ref totalTaskComplete) < peerListTarget.Count &&
+                !_cancellationTokenServiceSync.IsCancellationRequested)
+                await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay, _cancellationTokenServiceSync.Token);
 
 
             ClassLog.WriteLine("Total Peers Task(s) done: " + totalResponseOk + "/" + peerListTarget.Count, ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MEDIUM_PRIORITY);
@@ -1184,7 +1187,7 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                             // Ignored.
                         }
 
-                        totalTaskComplete++;
+                        Interlocked.Increment(ref totalTaskComplete);
                     }), 0, null);
 
                 }
@@ -1192,8 +1195,9 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                 #endregion
 
                 // Await the task is complete.
-                while (totalTaskComplete < totalTaskCount)
-                    await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay);
+                while (Volatile.Read(ref totalTaskComplete) < totalTaskCount &&
+                    !_cancellationTokenServiceSync.IsCancellationRequested)
+                    await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay, _cancellationTokenServiceSync.Token);
 
                 if (hashSetSovereignUpdateHash.Count > 0)
                 {
@@ -1232,14 +1236,15 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                                 }
                             }
 
-                            totalTaskComplete++;
+                            Interlocked.Increment(ref totalTaskComplete);
                         }), 0, _cancellationTokenServiceSync);
 
                     }
 
                     // Await the task is complete.
-                    while (totalTaskComplete < totalTaskCount)
-                        await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay);
+                    while (Volatile.Read(ref totalTaskComplete) < totalTaskCount &&
+                        !_cancellationTokenServiceSync.IsCancellationRequested)
+                        await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay, _cancellationTokenServiceSync.Token);
                 }
 
                 return totalSovereignUpdatedReceived;
@@ -1342,14 +1347,15 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                                         ClassLog.WriteLine("Error on asking network informations. Exception: " + error.Message, ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_HIGH_PRIORITY, true);
                                     }
 
-                                    totalTaskDone++;
+                                    Interlocked.Increment(ref totalTaskDone);
 
                                 }), 0, _cancellationTokenServiceSync);
                             }
 
 
-                            while (totalTaskDone < totalTaskToDo)
-                                await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay);
+                            while (Volatile.Read(ref totalTaskDone) < totalTaskToDo &&
+                                !_cancellationTokenServiceSync.IsCancellationRequested)
+                                await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay, _cancellationTokenServiceSync.Token);
 
 
                             try
@@ -1450,10 +1456,9 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
         {
             DisposableSortedList<long, ClassBlockObject> blockListSynced = new DisposableSortedList<long, ClassBlockObject>();
 
-            // An empty target cannot be queried: First()/Last() below would throw.
-            if (peerListTarget == null || peerListTarget.Count == 0 ||
-                listBlockHeightTarget == null || listBlockHeightTarget.Count == 0)
-                return blockListSynced;
+            int totalTaskToDo = peerListTarget.Count;
+            int totalTaskDone = 0;
+
 
             DisposableConcurrentDictionary<long, Dictionary<int, ClassBlockObject>> listBlockObjectsReceived = new DisposableConcurrentDictionary<long, Dictionary<int, ClassBlockObject>>();
 
@@ -1472,8 +1477,7 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
 
                 await TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                 {
-                    try
-                    {
+
                     if (blockHeightEnd - blockHeightStart == 0)
                     {
                         foreach (long blockHeight in listBlockHeightTarget.GetList)
@@ -1537,9 +1541,7 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                     {
                         Tuple<bool, ClassPeerSyncPacketObjectReturned<ClassPeerPacketSendBlockDataRange>> result = await SendAskBlockDataByRange(peerListTarget[i1].PeerNetworkClientSyncObject, blockHeightStart, blockHeightEnd, refuseLockedBlock, _cancellationTokenServiceSync);
 
-                        if (result != null && result.Item1 && result.Item2 != null &&
-                            result.Item2.ObjectReturned != null &&
-                            result.Item2.ObjectReturned.ListBlockObject != null)
+                        if (result != null && result.Item1 && result.Item2 != null)
                         {
                             foreach (ClassBlockObject blockObject in result.Item2.ObjectReturned.ListBlockObject)
                             {
@@ -1586,25 +1588,15 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                         }
                     }
 
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        throw;
-                    }
-                    catch (Exception error)
-                    {
-                        // A failed peer must not prevent processing responses from
-                        // the remaining peers or leave a manual completion counter stuck.
-                        Debug.WriteLine("Xenophyte block request failed for peer " + i1 + ": " + error);
-                    }
+                    Interlocked.Increment(ref totalTaskDone);
                 }), 0, _cancellationTokenServiceSync, null, true);
             }
 
-            // InsertTask(..., useFactory: true) awaits the complete delegate above.
-            // The old totalTaskDone polling loop was redundant and could wait forever
-            // when a delegate faulted before incrementing its counter.
+            while (Volatile.Read(ref totalTaskDone) < totalTaskToDo &&
+                !_cancellationTokenServiceSync.IsCancellationRequested)
+                await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay, _cancellationTokenServiceSync.Token);
 
-            foreach (long blockHeight in listBlockObjectsReceived.GetList.Keys)
+            foreach (int blockHeight in listBlockObjectsReceived.GetList.Keys)
             {
                 using (DisposableDictionary<string, ClassBlockSync> listBlockSynced = new DisposableDictionary<string, ClassBlockSync>())
                 {
@@ -1785,14 +1777,15 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                                     }
 
 
-                                    totalTaskDone++;
+                                    Interlocked.Increment(ref totalTaskDone);
 
                                 }), 0, _cancellationTokenServiceSync);
                             }
 
 
-                            while (totalTaskDone < totalTaskToDo)
-                                await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay);
+                            while (Volatile.Read(ref totalTaskDone) < totalTaskToDo &&
+                                !_cancellationTokenServiceSync.IsCancellationRequested)
+                                await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay, _cancellationTokenServiceSync.Token);
 
 
                             try
@@ -1963,14 +1956,15 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                                         // Ignored, collection can are disposed before the task has been completed.
                                     }
 
-                                    totalTaskDone++;
+                                    Interlocked.Increment(ref totalTaskDone);
 
                                 }), 0, _cancellationTokenServiceSync);
 
                             }
 
-                            while (totalTaskDone < totalTaskToDo)
-                                await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay);
+                            while (Volatile.Read(ref totalTaskDone) < totalTaskToDo &&
+                                !_cancellationTokenServiceSync.IsCancellationRequested)
+                                await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay, _cancellationTokenServiceSync.Token);
 
                             try
                             {
@@ -2359,12 +2353,12 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                                     ClassLog.WriteLine("Failed to sync block data: " + blockHeightTarget + " from peer. Exception: " + error.Message, ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Red);
                                 }
 
-                                totalTaskDone++;
+                                Interlocked.Increment(ref totalTaskDone);
 
                             }), 0, cancellation);
                         }
 
-                        while (totalTaskDone < totalTaskToDo)
+                        while (Volatile.Read(ref totalTaskDone) < totalTaskToDo && !cancellation.IsCancellationRequested)
                             await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay, cancellation.Token);
 
                         if (totalResponseOk >= _peerNetworkSettingObject.PeerMinAvailablePeerSync)
