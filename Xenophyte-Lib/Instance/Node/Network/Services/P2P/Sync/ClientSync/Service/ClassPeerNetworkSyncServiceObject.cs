@@ -1,4 +1,4 @@
-using Xenophyte_Lib.Blockchain.Block.Enum;
+﻿using Xenophyte_Lib.Blockchain.Block.Enum;
 using Xenophyte_Lib.Blockchain.Block.Function;
 using Xenophyte_Lib.Blockchain.Block.Object.Structure;
 using Xenophyte_Lib.Blockchain.Database;
@@ -1450,9 +1450,10 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
         {
             DisposableSortedList<long, ClassBlockObject> blockListSynced = new DisposableSortedList<long, ClassBlockObject>();
 
-            int totalTaskToDo = peerListTarget.Count;
-            int totalTaskDone = 0;
-
+            // An empty target cannot be queried: First()/Last() below would throw.
+            if (peerListTarget == null || peerListTarget.Count == 0 ||
+                listBlockHeightTarget == null || listBlockHeightTarget.Count == 0)
+                return blockListSynced;
 
             DisposableConcurrentDictionary<long, Dictionary<int, ClassBlockObject>> listBlockObjectsReceived = new DisposableConcurrentDictionary<long, Dictionary<int, ClassBlockObject>>();
 
@@ -1471,7 +1472,8 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
 
                 await TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                 {
-
+                    try
+                    {
                     if (blockHeightEnd - blockHeightStart == 0)
                     {
                         foreach (long blockHeight in listBlockHeightTarget.GetList)
@@ -1535,7 +1537,9 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                     {
                         Tuple<bool, ClassPeerSyncPacketObjectReturned<ClassPeerPacketSendBlockDataRange>> result = await SendAskBlockDataByRange(peerListTarget[i1].PeerNetworkClientSyncObject, blockHeightStart, blockHeightEnd, refuseLockedBlock, _cancellationTokenServiceSync);
 
-                        if (result != null && result.Item1 && result.Item2 != null)
+                        if (result != null && result.Item1 && result.Item2 != null &&
+                            result.Item2.ObjectReturned != null &&
+                            result.Item2.ObjectReturned.ListBlockObject != null)
                         {
                             foreach (ClassBlockObject blockObject in result.Item2.ObjectReturned.ListBlockObject)
                             {
@@ -1582,14 +1586,25 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                         }
                     }
 
-                    totalTaskDone++;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception error)
+                    {
+                        // A failed peer must not prevent processing responses from
+                        // the remaining peers or leave a manual completion counter stuck.
+                        Debug.WriteLine("Xenophyte block request failed for peer " + i1 + ": " + error);
+                    }
                 }), 0, _cancellationTokenServiceSync, null, true);
             }
 
-            while (totalTaskDone < totalTaskToDo)
-                await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay);
+            // InsertTask(..., useFactory: true) awaits the complete delegate above.
+            // The old totalTaskDone polling loop was redundant and could wait forever
+            // when a delegate faulted before incrementing its counter.
 
-            foreach (int blockHeight in listBlockObjectsReceived.GetList.Keys)
+            foreach (long blockHeight in listBlockObjectsReceived.GetList.Keys)
             {
                 using (DisposableDictionary<string, ClassBlockSync> listBlockSynced = new DisposableDictionary<string, ClassBlockSync>())
                 {
