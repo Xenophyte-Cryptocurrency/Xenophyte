@@ -42,6 +42,14 @@ namespace Xenophyte_Lib.Other.Object.Network
 
         public bool Closed { private set; get; }
 
+        /// <summary>
+        /// True when the most recent ReceiveBinaryPacketAsync call returned null
+        /// because no bytes arrived before its inactivity timeout. In this case
+        /// the connection remains usable and the caller may continue receiving.
+        /// False for cancellation, disconnects, malformed frames, and I/O errors.
+        /// </summary>
+        public bool LastBinaryReceiveTimedOut { private set; get; }
+
         // ============================================================
         // XENO BINARY PROTOCOL
         // ============================================================
@@ -378,6 +386,7 @@ namespace Xenophyte_Lib.Other.Object.Network
 
             bool lockTaken = false;
             ReceiveProgress progress = new ReceiveProgress();
+            LastBinaryReceiveTimedOut = false;
 
             // The timeout is reset before each individual socket read below.
             using (CancellationTokenSource timeout = new CancellationTokenSource())
@@ -504,6 +513,18 @@ namespace Xenophyte_Lib.Other.Object.Network
                 }
                 catch (OperationCanceledException)
                 {
+                    // An inactivity timeout before consuming any bytes is not a
+                    // protocol failure: the peer may simply be idle. Keep the
+                    // connection open so the caller can wait for its next packet.
+                    // Explicit caller cancellation still terminates the operation.
+                    if (!progress.BytesConsumed &&
+                        timeout.IsCancellationRequested &&
+                        !cancellationToken.IsCancellationRequested)
+                    {
+                        LastBinaryReceiveTimedOut = true;
+                        return null;
+                    }
+
                     // Once bytes have been consumed, the TCP stream cannot safely be
                     // reused because the next byte may belong to a partial frame.
                     if (progress.BytesConsumed)
