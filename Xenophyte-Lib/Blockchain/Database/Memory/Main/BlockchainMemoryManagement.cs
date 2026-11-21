@@ -1346,7 +1346,7 @@ namespace Xenophyte_Lib.Blockchain.Database.Memory.Main
                     {
                         canceled = true;
 
-                        ClassLog.WriteLine("Error on building latest blockchain stats. Exception: " + error.Message, ClassEnumLogLevelType.LOG_LEVEL_GENERAL, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Red);
+                        ClassLog.WriteLine("Error on building latest blockchain stats. Exception: " + error.ToString(), ClassEnumLogLevelType.LOG_LEVEL_GENERAL, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Red);
 #if DEBUG
                         Debug.WriteLine("Error on building latest blockchain stats. Exception: " + error.Message);
 #endif

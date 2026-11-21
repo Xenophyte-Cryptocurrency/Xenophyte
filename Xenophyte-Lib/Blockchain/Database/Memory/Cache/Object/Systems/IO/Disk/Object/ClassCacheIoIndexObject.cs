@@ -1163,6 +1163,11 @@ namespace Xenophyte_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Disk.
 
             await WaitIoWriteDone(cancellation);
 
+            // The cache stream can be closed during a cache-file replacement.
+            // Reopen it before seeking/reading so a previous interrupted replacement
+            // cannot leave subsequent block-statistics reads using a closed stream.
+            OpenLockStream();
+
             ClassBlockObject blockObject = null;
 
             // If the data is indicated to be inside the io cache file.
@@ -1197,6 +1202,9 @@ namespace Xenophyte_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Disk.
         private async Task<List<ClassBlockObject>> ReadAndGetIoBlockDataFromListBlockHeightOnIoStreamFile(HashSet<long> listBlockHeight, CancellationTokenSource cancellation)
         {
             await WaitIoWriteDone(cancellation);
+
+            // Ensure the shared cache stream is open before any Position/Read operation.
+            OpenLockStream();
 
             List<ClassBlockObject> listBlockObject = new List<ClassBlockObject>();
 
