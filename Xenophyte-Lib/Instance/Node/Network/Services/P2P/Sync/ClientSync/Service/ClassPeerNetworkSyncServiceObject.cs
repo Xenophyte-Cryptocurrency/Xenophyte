@@ -616,11 +616,17 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                                         {
                                             ClassLog.WriteLine(syncBlockResult.Count + " block(s) synced. Sync now block transaction(s) of them..", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY);
 
-                                            int completedCount = 0;
-                                            int scheduledCount = 0;
+                                            // One completion source per scheduled block task. It is always completed in the
+                                            // finally block, and the wait below is bounded, so a task that never runs
+                                            // (TaskManager disabled, cancelled before start, killed by the cleaner) cannot
+                                            // freeze the block synchronization loop.
+                                            List<Task> scheduledBlockTasks = new List<Task>();
 
                                             foreach (ClassBlockObject blockObject in syncBlockResult.GetList.Values)
                                             {
+                                                TaskCompletionSource<bool> blockTaskCompletion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                                                scheduledBlockTasks.Add(blockTaskCompletion.Task);
+
                                                 TaskManager.TaskManager.InsertTask(async () =>
                                                 {
                                                     try
@@ -688,14 +694,16 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                                                     finally
                                                     {
                                                         // Always release the batch waiter, including early returns and exceptions.
-                                                        Interlocked.Increment(ref completedCount);
+                                                        blockTaskCompletion.TrySetResult(true);
                                                     }
                                                 }, 0, _cancellationTokenServiceSync);
-                                                scheduledCount++;
                                             }
 
-                                            while (Volatile.Read(ref completedCount) < scheduledCount)
-                                                await Task.Delay(250, _cancellationTokenServiceSync.Token);
+                                            if (!await WaitAllWithTimeoutAsync(scheduledBlockTasks, GetBlockBatchWaitTimeoutMs(scheduledBlockTasks.Count), _cancellationTokenServiceSync.Token).ConfigureAwait(false))
+                                            {
+                                                forceDisconnect = true;
+                                                ClassLog.WriteLine("Timeout while storing " + scheduledBlockTasks.Count + " synced block(s). The sync cycle continues and will retry the missing blocks.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Red);
+                                            }
                                         }
                                         else
                                         {
@@ -1450,6 +1458,45 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
 
 
         /// <summary>
+        /// Wait for every task, but never longer than the timeout.
+        /// Returns true when all tasks completed, false on timeout. Throws only if the service token is cancelled.
+        /// </summary>
+        private static async Task<bool> WaitAllWithTimeoutAsync(IEnumerable<Task> tasks, int timeoutMs, CancellationToken token)
+        {
+            Task all = Task.WhenAll(tasks);
+
+            if (all.IsCompleted)
+            {
+                await all.ConfigureAwait(false);
+                return true;
+            }
+
+            using (CancellationTokenSource delayCancellation = CancellationTokenSource.CreateLinkedTokenSource(token))
+            {
+                Task finished = await Task.WhenAny(all, Task.Delay(timeoutMs, delayCancellation.Token)).ConfigureAwait(false);
+
+                if (finished == all)
+                {
+                    delayCancellation.Cancel();
+                    await all.ConfigureAwait(false);
+                    return true;
+                }
+            }
+
+            token.ThrowIfCancellationRequested();
+            return false;
+        }
+
+        /// <summary>
+        /// Maximum time allowed to store a batch of synced blocks.
+        /// </summary>
+        private int GetBlockBatchWaitTimeoutMs(int totalTask)
+        {
+            long timeout = (long)Math.Max(1, _peerNetworkSettingObject.PeerMaxDelayAwaitResponse) * 1000L * Math.Max(2, totalTask);
+            return (int)Math.Min(timeout, 300000L);
+        }
+
+        /// <summary>
         /// Run multiple async task to ask a list of blocks object.
         /// </summary>
         private async Task<DisposableSortedList<long, ClassBlockObject>> StartAskBlockObjectFromListPeerTarget(Dictionary<int, ClassPeerTargetObject> peerListTarget, DisposableList<long> listBlockHeightTarget, bool refuseLockedBlock)
@@ -1480,10 +1527,28 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
             // A small batch gives network overlap without creating one OS thread per peer.
             const int maxConcurrentPeerRequests = 4;
             List<Task> peerTasks = new List<Task>(maxConcurrentPeerRequests);
+            List<CancellationTokenSource> peerCancellations = new List<CancellationTokenSource>();
 
-            foreach (int i in peerListTarget.Keys)
+            // Hard deadline per peer. A peer that accepts the request but never answers
+            // (or a send/receive that ignores cancellation) is abandoned instead of
+            // blocking the whole synchronization cycle.
+            int peerRequestTimeoutMs = (int)Math.Min(
+                (long)Math.Max(1, _peerNetworkSettingObject.PeerMaxDelayAwaitResponse) * 1000L * Math.Max(2, Math.Min(listBlockHeightTarget.Count, 8)),
+                120000L);
+
+            // Snapshot the keys: the peer target list can be modified elsewhere while we wait.
+            foreach (int i in peerListTarget.Keys.ToList())
             {
                 int i1 = i;
+
+                if (!peerListTarget.TryGetValue(i1, out ClassPeerTargetObject peerTarget) || peerTarget == null)
+                    continue;
+
+                string peerIpLog = peerTarget.PeerIpTarget;
+
+                CancellationTokenSource peerCancellation = CancellationTokenSource.CreateLinkedTokenSource(_cancellationTokenServiceSync.Token);
+                peerCancellation.CancelAfter(peerRequestTimeoutMs);
+                peerCancellations.Add(peerCancellation);
 
                 peerTasks.Add(TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                 {
@@ -1506,7 +1571,10 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                                     break;
                                 }
 
-                                Tuple<bool, ClassPeerSyncPacketObjectReturned<ClassPeerPacketSendBlockData>> result = await SendAskBlockData(peerListTarget[i1].PeerNetworkClientSyncObject, blockHeight, refuseLockedBlock, _cancellationTokenServiceSync);
+                                Tuple<bool, ClassPeerSyncPacketObjectReturned<ClassPeerPacketSendBlockData>> result = await SendAskBlockData(peerTarget.PeerNetworkClientSyncObject, blockHeight, refuseLockedBlock, peerCancellation);
+
+                                if (peerCancellation.IsCancellationRequested)
+                                    break;
 
                                 if (result == null ||
                                 !result.Item1 ||
@@ -1553,9 +1621,10 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
 
                     else
                     {
-                        Tuple<bool, ClassPeerSyncPacketObjectReturned<ClassPeerPacketSendBlockDataRange>> result = await SendAskBlockDataByRange(peerListTarget[i1].PeerNetworkClientSyncObject, blockHeightStart, blockHeightEnd, refuseLockedBlock, _cancellationTokenServiceSync);
+                        Tuple<bool, ClassPeerSyncPacketObjectReturned<ClassPeerPacketSendBlockDataRange>> result = await SendAskBlockDataByRange(peerTarget.PeerNetworkClientSyncObject, blockHeightStart, blockHeightEnd, refuseLockedBlock, peerCancellation);
 
-                        if (result != null && result.Item1 && result.Item2 != null &&
+                        if (!peerCancellation.IsCancellationRequested &&
+                            result != null && result.Item1 && result.Item2 != null &&
                             result.Item2.ObjectReturned != null &&
                             result.Item2.ObjectReturned.ListBlockObject != null)
                         {
@@ -1613,24 +1682,36 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                     {
                         ClassLog.WriteLine(
                             "Peer block synchronization task failed for peer " +
-                            peerListTarget[i1].PeerIpTarget + ": " + error.Message,
+                            peerIpLog + ": " + error.Message,
                             ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC,
                             ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY);
 #if DEBUG
                         Debug.WriteLine("Peer block synchronization task failed: " + error);
 #endif
                     }
-                }), 0, _cancellationTokenServiceSync, null, true));
+                }), 0, peerCancellation, null, true));
 
                 if (peerTasks.Count >= maxConcurrentPeerRequests)
                 {
-                    await Task.WhenAll(peerTasks).ConfigureAwait(false);
+                    if (!await WaitAllWithTimeoutAsync(peerTasks, peerRequestTimeoutMs + 5000, _cancellationTokenServiceSync.Token).ConfigureAwait(false))
+                        ClassLog.WriteLine("Timeout while waiting a batch of peer block responses. Continue with the data already received.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.DarkYellow);
+
                     peerTasks.Clear();
                 }
             }
 
             if (peerTasks.Count > 0)
-                await Task.WhenAll(peerTasks).ConfigureAwait(false);
+            {
+                if (!await WaitAllWithTimeoutAsync(peerTasks, peerRequestTimeoutMs + 5000, _cancellationTokenServiceSync.Token).ConfigureAwait(false))
+                    ClassLog.WriteLine("Timeout while waiting the last peer block responses. Continue with the data already received.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.DarkYellow);
+            }
+
+            // Cancel anything still running (late peers) so their sockets are released, then free the tokens.
+            foreach (CancellationTokenSource peerCancellation in peerCancellations)
+            {
+                try { peerCancellation.Cancel(); } catch { }
+                try { peerCancellation.Dispose(); } catch { }
+            }
 
             foreach (long blockHeight in listBlockObjectsReceived.GetList.Keys)
             {
