@@ -1456,31 +1456,39 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
         {
             DisposableSortedList<long, ClassBlockObject> blockListSynced = new DisposableSortedList<long, ClassBlockObject>();
 
-            int totalTaskToDo = peerListTarget.Count;
-            int totalTaskDone = 0;
+            // Empty input is a normal no-op. Validate before First()/Last() and before
+            // creating any peer work so a malformed batch cannot stall synchronization.
+            if (peerListTarget == null || peerListTarget.Count == 0 ||
+                listBlockHeightTarget == null || listBlockHeightTarget.Count == 0 ||
+                listBlockHeightTarget.GetList == null)
+                return blockListSynced;
 
-
-            DisposableConcurrentDictionary<long, Dictionary<int, ClassBlockObject>> listBlockObjectsReceived = new DisposableConcurrentDictionary<long, Dictionary<int, ClassBlockObject>>();
+            // Each peer writes its own peer-id entry. ConcurrentDictionary is required
+            // here because different peer tasks may write the same block-height bucket.
+            DisposableConcurrentDictionary<long, System.Collections.Concurrent.ConcurrentDictionary<int, ClassBlockObject>> listBlockObjectsReceived =
+                new DisposableConcurrentDictionary<long, System.Collections.Concurrent.ConcurrentDictionary<int, ClassBlockObject>>();
 
             foreach (var blockHeight in listBlockHeightTarget.GetAll)
-                listBlockObjectsReceived.TryAdd(blockHeight, new Dictionary<int, ClassBlockObject>());
+                listBlockObjectsReceived.TryAdd(blockHeight, new System.Collections.Concurrent.ConcurrentDictionary<int, ClassBlockObject>());
 
 
             long blockHeightStart = listBlockHeightTarget.GetList.First();
             long blockHeightEnd = listBlockHeightTarget.GetList.Last();
 
 
+            // Keep the number of dedicated LongRunning TaskManager workers bounded.
+            // A small batch gives network overlap without creating one OS thread per peer.
+            const int maxConcurrentPeerRequests = 4;
+            List<Task> peerTasks = new List<Task>(maxConcurrentPeerRequests);
+
             foreach (int i in peerListTarget.Keys)
             {
                 int i1 = i;
 
-
-                await TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
+                peerTasks.Add(TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                 {
-                    // A peer task must always signal completion. TaskManager catches
-                    // exceptions raised by useFactory tasks, so incrementing the
-                    // waiter counter only on the success path can deadlock the whole
-                    // blockchain synchronization loop indefinitely.
+                    // Peer failures are isolated so one unavailable peer does not
+                    // prevent the remaining peers in this batch from contributing blocks.
                     try
                     {
                     if (blockHeightEnd - blockHeightStart == 0)
@@ -1503,6 +1511,7 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                                 if (result == null ||
                                 !result.Item1 ||
                                 result.Item2 == null ||
+                                result.Item2.ObjectReturned == null ||
                                 result.Item2.ObjectReturned.BlockData == null ||
                                 result.Item2.ObjectReturned.BlockData.BlockStatus == ClassBlockEnumStatus.LOCKED ||
                                 !listBlockObjectsReceived.ContainsKey(result.Item2.ObjectReturned.BlockData.BlockHeight))
@@ -1533,7 +1542,7 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
 
                                 #endregion
 
-                                listBlockObjectsReceived[result.Item2.ObjectReturned.BlockData.BlockHeight].Add(i1, result.Item2.ObjectReturned.BlockData);
+                                listBlockObjectsReceived[result.Item2.ObjectReturned.BlockData.BlockHeight].TryAdd(i1, result.Item2.ObjectReturned.BlockData);
                             }
                             catch
                             {
@@ -1546,7 +1555,9 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                     {
                         Tuple<bool, ClassPeerSyncPacketObjectReturned<ClassPeerPacketSendBlockDataRange>> result = await SendAskBlockDataByRange(peerListTarget[i1].PeerNetworkClientSyncObject, blockHeightStart, blockHeightEnd, refuseLockedBlock, _cancellationTokenServiceSync);
 
-                        if (result != null && result.Item1 && result.Item2 != null)
+                        if (result != null && result.Item1 && result.Item2 != null &&
+                            result.Item2.ObjectReturned != null &&
+                            result.Item2.ObjectReturned.ListBlockObject != null)
                         {
                             foreach (ClassBlockObject blockObject in result.Item2.ObjectReturned.ListBlockObject)
                             {
@@ -1581,7 +1592,7 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                                         }
 
 
-                                        listBlockObjectsReceived[blockObject.BlockHeight].Add(i1, blockObject);
+                                        listBlockObjectsReceived[blockObject.BlockHeight].TryAdd(i1, blockObject);
                                     }
                                     #endregion
                                 }
@@ -1609,18 +1620,19 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                         Debug.WriteLine("Peer block synchronization task failed: " + error);
 #endif
                     }
-                    finally
-                    {
-                        Interlocked.Increment(ref totalTaskDone);
-                    }
-                }), 0, _cancellationTokenServiceSync, null, true);
+                }), 0, _cancellationTokenServiceSync, null, true));
+
+                if (peerTasks.Count >= maxConcurrentPeerRequests)
+                {
+                    await Task.WhenAll(peerTasks).ConfigureAwait(false);
+                    peerTasks.Clear();
+                }
             }
 
-            while (Volatile.Read(ref totalTaskDone) < totalTaskToDo &&
-                !_cancellationTokenServiceSync.IsCancellationRequested)
-                await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay, _cancellationTokenServiceSync.Token);
+            if (peerTasks.Count > 0)
+                await Task.WhenAll(peerTasks).ConfigureAwait(false);
 
-            foreach (int blockHeight in listBlockObjectsReceived.GetList.Keys)
+            foreach (long blockHeight in listBlockObjectsReceived.GetList.Keys)
             {
                 using (DisposableDictionary<string, ClassBlockSync> listBlockSynced = new DisposableDictionary<string, ClassBlockSync>())
                 {
