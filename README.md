@@ -55,13 +55,11 @@ Everything has been developed in C#, and support NET5/NET6/NET7/NET8, a downgrad
 
 > **Develop an example of Mining Pool. [0%]**
 
-> **Finish optimizations. [60%]**
+> **Finish optimizations. [80%]**
 
-> **Clean up the source code. [5%]**
+> **Clean up the source code. [20%]**
 
-> **Include NET6/7 support. [100%]**
-
-> **Porting the Desktop Wallet to Telerik. [0%]**
+> **Include NET6/7/8/9 support. [100%]**
 
 > **Complete the new packet system data , passing new random packet format by auth keys and unique id's [90%]**. 
 
