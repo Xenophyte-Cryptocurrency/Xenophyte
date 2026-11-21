@@ -273,21 +273,7 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Clien
                             _peerNetworkSettingObject.PeerMaxDelayAwaitResponse * 1000,
                             _cancellationTokenListenPeerPacket.Token);
 
-                        if (binaryPacket == null)
-                        {
-                            // A clean inactivity timeout does not mean that the peer
-                            // disconnected. Keep the receive loop alive; malformed,
-                            // cancelled, or closed streams still terminate it.
-                            if (_clientSocket != null &&
-                                !_cancellationTokenListenPeerPacket.IsCancellationRequested &&
-                                _clientSocket.LastBinaryReceiveTimedOut &&
-                                _clientSocket.IsConnected())
-                                continue;
-
-                            break;
-                        }
-
-                        if (binaryPacket.Data == null || binaryPacket.Data.Length == 0)
+                        if (binaryPacket == null || binaryPacket.Data == null || binaryPacket.Data.Length == 0)
                             break;
 
                         ClientPeerLastPacketReceived = TaskManager.TaskManager.CurrentTimestampMillisecond + _peerNetworkSettingObject.PeerServerPacketDelay;

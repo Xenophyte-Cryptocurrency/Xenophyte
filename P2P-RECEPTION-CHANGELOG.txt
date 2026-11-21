@@ -11,18 +11,3 @@ time is not charged against the network inactivity timeout.
 
 The existing XENO binary framing, packet layout, and server dispatch path are
 otherwise preserved. This change does not constitute a full build/test run.
-
-Server-side idle receive timeout handling
-=========================================
-
-ClassPeerNetworkClientServerObject.HandlePeerClient now distinguishes a clean
-idle receive timeout from a closed or invalid TCP stream. A clean timeout with
-no bytes consumed keeps the peer receive loop alive instead of disconnecting
-the peer. ClassCustomSocket exposes LastBinaryReceiveTimedOut for this
-distinction.
-
-A timeout after any bytes of a frame have been consumed still closes the socket,
-because the next read position would otherwise be ambiguous. Explicit
-cancellation, malformed frames, EOF, and I/O failures remain terminal.
-
-The XENO wire format and packet dispatch/validation behavior are unchanged.

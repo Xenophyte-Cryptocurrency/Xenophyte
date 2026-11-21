@@ -1477,7 +1477,12 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
 
                 await TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                 {
-
+                    // A peer task must always signal completion. TaskManager catches
+                    // exceptions raised by useFactory tasks, so incrementing the
+                    // waiter counter only on the success path can deadlock the whole
+                    // blockchain synchronization loop indefinitely.
+                    try
+                    {
                     if (blockHeightEnd - blockHeightStart == 0)
                     {
                         foreach (long blockHeight in listBlockHeightTarget.GetList)
@@ -1588,7 +1593,26 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                         }
                     }
 
-                    Interlocked.Increment(ref totalTaskDone);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception error)
+                    {
+                        ClassLog.WriteLine(
+                            "Peer block synchronization task failed for peer " +
+                            peerListTarget[i1].PeerIpTarget + ": " + error.Message,
+                            ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC,
+                            ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY);
+#if DEBUG
+                        Debug.WriteLine("Peer block synchronization task failed: " + error);
+#endif
+                    }
+                    finally
+                    {
+                        Interlocked.Increment(ref totalTaskDone);
+                    }
                 }), 0, _cancellationTokenServiceSync, null, true);
             }
 
