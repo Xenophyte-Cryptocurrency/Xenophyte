@@ -35,7 +35,9 @@ namespace Xenophyte_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Disk.
         /// IO Streams and files paths.
         /// </summary>
         private bool _ioStreamsClosed;
-        private bool _ioOnWriteData;
+        // Volatile provides visibility to the wait loop; public cache operations are
+        // additionally serialized by _ioSemaphoreAccess.
+        private volatile bool _ioOnWriteData;
         private FileStream _ioDataStructureFileLockStream;
         private string _ioDataStructureFilename;
         private string _ioDataStructureFilePath;
@@ -336,7 +338,7 @@ namespace Xenophyte_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Disk.
                 useSemaphore = await _ioSemaphoreAccess.TryWaitAsync(cancellationIoCache);
 
                 if (useSemaphore)
-                   return await CallGetRetrieveDataAccess(blockHeight, keepAlive, false, clone, cancellationIoCache);
+                    return await CallGetRetrieveDataAccess(blockHeight, keepAlive, false, clone, cancellationIoCache);
             }
             finally
             {
@@ -916,7 +918,10 @@ namespace Xenophyte_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Disk.
             {
                 if (!semaphoreUsed)
                 {
-                    await _ioSemaphoreAccess.WaitAsync(cancellation.Token);
+                    if (cancellation == null)
+                        await _ioSemaphoreAccess.WaitAsync().ConfigureAwait(false);
+                    else
+                        await _ioSemaphoreAccess.WaitAsync(cancellation.Token).ConfigureAwait(false);
                     useSemaphore = true;
                 }
 
@@ -987,30 +992,38 @@ namespace Xenophyte_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Disk.
 
                     #region Update the io cache file.
 
-                    long previousLastIoCacheTotalFileSizeWritten = _lastIoCacheTotalFileSizeWritten;
+                    // Deleted records must be physically removed before their in-memory
+                    // index entries are discarded, otherwise a restart could resurrect them.
+                    bool fullPurge = listIoDataDeleted.Count > 0 ||
+                        (_totalIoCacheFileSize > 0 && _lastIoCacheTotalFileSizeWritten > 0
+                            ? ((double)_lastIoCacheTotalFileSizeWritten / _totalIoCacheFileSize) * 100d >= _blockchainDatabaseSetting.BlockchainCacheSetting.IoCacheDiskFullPurgeEnablePercentWrite
+                            : false);
 
-                    bool fullPurge = _lastIoCacheTotalFileSizeWritten > 0 ? ((double)_lastIoCacheTotalFileSizeWritten / _totalIoCacheFileSize) * 100d >= _blockchainDatabaseSetting.BlockchainCacheSetting.IoCacheDiskFullPurgeEnablePercentWrite : false;
-
+                    bool cacheFileUpdated = true;
                     if (fullPurge || listIoData.Count > 0)
-                        await ReplaceIoDataListOnIoStreamFile(listIoData.GetList, cancellation, fullPurge);
+                        cacheFileUpdated = await ReplaceIoDataListOnIoStreamFile(listIoData.GetList, cancellation, fullPurge).ConfigureAwait(false);
 
-                    foreach (long blockHeight in listIoData.GetList.Keys)
+                    if (cacheFileUpdated)
                     {
-                        if (!_ioStructureObjectsDictionary[blockHeight].IsNull)
-                            _ioStructureObjectsDictionary[blockHeight].BlockObject = null;
-                    }
+                        foreach (long blockHeight in listIoData.GetList.Keys.ToArray())
+                        {
+                            if (_ioStructureObjectsDictionary.ContainsKey(blockHeight) &&
+                                !_ioStructureObjectsDictionary[blockHeight].IsNull)
+                                _ioStructureObjectsDictionary[blockHeight].BlockObject = null;
+                        }
 
-                    if (fullPurge)
-                    {
-                        _lastIoCacheTotalFileSizeWritten = 0;
-                        ClassUtility.CleanGc();
+                        if (fullPurge)
+                        {
+                            _lastIoCacheTotalFileSizeWritten = 0;
+                            ClassUtility.CleanGc();
+                        }
                     }
 
                     #endregion
 
                     #region Delete listed io cache data to delete forever.
 
-                    if (listIoDataDeleted.Count > 0)
+                    if (cacheFileUpdated && listIoDataDeleted.Count > 0)
                     {
                         foreach (var ioBlockHeight in listIoDataDeleted)
                         {
@@ -1281,82 +1294,51 @@ namespace Xenophyte_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Disk.
         /// <returns></returns>
         private async Task<Tuple<bool, byte[]>> ReadByBlock(long ioFileSize, CancellationTokenSource cancellation, FileStream ioFileStream)
         {
-            bool readStatus = true;
-            byte[] data = new byte[ioFileSize];
+            // A byte[] is indexed by Int32. Reject invalid sizes before allocating.
+            if (ioFileStream == null || ioFileSize < 0 || ioFileSize > int.MaxValue || !ioFileStream.CanRead)
+                return new Tuple<bool, byte[]>(false, Array.Empty<byte>());
 
-            using (DisposableList<byte[]> listData = new DisposableList<byte[]>())
+            byte[] data = new byte[(int)ioFileSize];
+            int totalRead = 0;
+
+            try
             {
-
-                long size = 0;
-                int percentRead = _blockchainDatabaseSetting.BlockchainCacheSetting.IoCacheDiskMinPercentReadFromBlockDataSize;
-                long sizeByBlockToRead = (ioFileSize * percentRead) / 100;
-
-                if (sizeByBlockToRead <= 0)
-                    sizeByBlockToRead = _blockchainDatabaseSetting.BlockchainCacheSetting.IoCacheDiskMinReadByBlockSize;
-
-                if (readStatus && ioFileStream.CanRead)
+                while (totalRead < data.Length)
                 {
+                    if (cancellation != null)
+                        cancellation.Token.ThrowIfCancellationRequested();
 
-                    while (size < data.Length)
-                    {
-                        try
-                        {
-                            if (cancellation != null)
-                            {
-                                if (cancellation.IsCancellationRequested)
-                                {
-                                    readStatus = false;
-                                    break;
-                                }
-                            }
-                            if (size + sizeByBlockToRead <= data.Length)
-                            {
-                                byte[] blockData = new byte[sizeByBlockToRead];
+                    int read = cancellation == null
+                        ? await ioFileStream.ReadAsync(data, totalRead, data.Length - totalRead).ConfigureAwait(false)
+                        : await ioFileStream.ReadAsync(data, totalRead, data.Length - totalRead, cancellation.Token).ConfigureAwait(false);
 
-                                if (cancellation == null)
-                                   await ioFileStream.ReadAsync(blockData, 0, blockData.Length);
-                                else
-                                   await ioFileStream.ReadAsync(blockData, 0, blockData.Length, cancellation.Token);
+                    // Stream.ReadAsync is allowed to return fewer bytes than requested.
+                    // A zero result before the expected length means EOF/truncation.
+                    if (read <= 0)
+                        return new Tuple<bool, byte[]>(false, data.Take(totalRead).ToArray());
 
-                                listData.Add(blockData);
-
-                                size += sizeByBlockToRead;
-                            }
-                            else
-                            {
-                                long rest = data.Length - size;
-
-                                if (rest > 0)
-                                {
-                                    byte[] blockData = new byte[rest];
-
-                                    if (cancellation == null)
-                                        await ioFileStream.ReadAsync(blockData, 0, blockData.Length);
-                                    else
-                                        await ioFileStream.ReadAsync(blockData, 0, blockData.Length, cancellation.Token);
-
-                                    listData.Add(blockData);
-
-                                    size += rest;
-                                }
-                            }
-
-                            if (size == data.Length)
-                                break;
-                        }
-                        catch
-                        {
-                            readStatus = false;
-                            break;
-                        }
-                    }
-
+                    totalRead += read;
                 }
 
-                return new Tuple<bool, byte[]>(readStatus, listData.GetList.SelectMany(x => x).ToArray());
+                return new Tuple<bool, byte[]>(true, data);
+            }
+            catch (OperationCanceledException)
+            {
+                return new Tuple<bool, byte[]>(false, data.Take(totalRead).ToArray());
+            }
+            catch (IOException)
+            {
+                return new Tuple<bool, byte[]>(false, data.Take(totalRead).ToArray());
+            }
+            catch (ObjectDisposedException)
+            {
+                return new Tuple<bool, byte[]>(false, data.Take(totalRead).ToArray());
+            }
+            catch (Exception)
+            {
+                return new Tuple<bool, byte[]>(false, data.Take(totalRead).ToArray());
             }
         }
-
 
         #endregion
 
@@ -1370,347 +1352,443 @@ namespace Xenophyte_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Disk.
         /// <returns></returns>
         private async Task<bool> WriteNewIoDataOnIoStreamFile(ClassBlockObject blockObject, CancellationTokenSource cancellation)
         {
-            bool success = false;
+            if (blockObject == null || _ioDataStructureFileLockStream == null || !_ioDataStructureFileLockStream.CanWrite)
+                return false;
 
-
-            await WaitIoWriteDone(cancellation);
-
+            await WaitIoWriteDone(cancellation).ConfigureAwait(false);
             _ioOnWriteData = true;
+
+            long position = _lastIoCacheFileLength;
+            bool committed = false;
 
             try
             {
-                if (blockObject != null)
+                if (cancellation != null)
+                    cancellation.Token.ThrowIfCancellationRequested();
+
+                if (!_ioStructureObjectsDictionary.ContainsKey(blockObject.BlockHeight))
+                    return false;
+
+                // Only append at the last committed offset. Refuse a file shorter than
+                // the index, and remove any orphan tail left by a previous interrupted write.
+                if (_ioDataStructureFileLockStream.Length < position)
+                    return false;
+
+                if (_ioDataStructureFileLockStream.Length > position)
                 {
-                    _ioDataStructureFileLockStream.Position = _lastIoCacheFileLength;
+                    _ioDataStructureFileLockStream.SetLength(position);
+                    await _ioDataStructureFileLockStream.FlushAsync().ConfigureAwait(false);
+                }
 
-                    long position = _lastIoCacheFileLength;
+                _ioDataStructureFileLockStream.Position = position;
+                long dataLength = 0;
 
-                    long dataLength = 0;
+                foreach (string ioDataLine in BlockObjectToIoStringData(blockObject, _blockchainDatabaseSetting, cancellation))
+                {
+                    if (cancellation != null)
+                        cancellation.Token.ThrowIfCancellationRequested();
 
-                    bool cancelled = false;
+                    byte[] lineBytes = _ioDataUtf8Encoding.GetBytes(ioDataLine);
+                    Tuple<bool, long> writeResult = await WriteByBlock(lineBytes, cancellation, _ioDataStructureFileLockStream).ConfigureAwait(false);
+                    if (!writeResult.Item1 || writeResult.Item2 != lineBytes.Length)
+                        throw new IOException("Incomplete cache I/O write.");
 
-                    foreach (string ioDataLine in BlockObjectToIoStringData(blockObject, _blockchainDatabaseSetting, cancellation))
+                    dataLength += writeResult.Item2;
+                }
+
+                _ioDataStructureFileLockStream.WriteByte((byte)'\r');
+                _ioDataStructureFileLockStream.WriteByte((byte)'\n');
+
+                if (cancellation != null)
+                    cancellation.Token.ThrowIfCancellationRequested();
+
+                if (cancellation == null)
+                    await _ioDataStructureFileLockStream.FlushAsync().ConfigureAwait(false);
+                else
+                    await _ioDataStructureFileLockStream.FlushAsync(cancellation.Token).ConfigureAwait(false);
+
+                // Commit in-memory metadata only after the complete record has been flushed.
+                ClassCacheIoStructureObject structure = _ioStructureObjectsDictionary[blockObject.BlockHeight];
+                long previousSize = structure.IsWritten ? structure.IoDataSizeOnFile : 0;
+                _totalIoCacheFileSize = Math.Max(0, _totalIoCacheFileSize - previousSize) + dataLength;
+                structure.IsWritten = true;
+                structure.IoDataSizeOnFile = dataLength;
+                structure.IoDataPosition = position;
+                _lastIoCacheTotalFileSizeWritten += dataLength;
+                _lastIoCacheFileLength = position + dataLength + 2;
+                committed = true;
+                return true;
+            }
+            catch (OperationCanceledException)
+            {
+                return false;
+            }
+            catch (IOException)
+            {
+                return false;
+            }
+            catch (ObjectDisposedException)
+            {
+                return false;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+            finally
+            {
+                if (!committed && _ioDataStructureFileLockStream != null)
+                {
+                    try
                     {
-                        if (cancellation != null)
+                        // Roll back only when the stream still reaches the committed boundary.
+                        // Never extend a truncated/corrupt file with zero-filled bytes.
+                        if (_ioDataStructureFileLockStream.Length >= position)
                         {
-                            if (cancellation.IsCancellationRequested)
-                            {
-                                cancelled = true;
-                                break;
-                            }
-                        }
-
-                        var writeResult = await WriteByBlock(_ioDataUtf8Encoding.GetBytes(ioDataLine), cancellation, _ioDataStructureFileLockStream);
-
-                        if (writeResult.Item1)
-                            dataLength += writeResult.Item2;
-                        else
-                        {
-                            cancelled = true;
-                            break;
+                            _ioDataStructureFileLockStream.SetLength(position);
+                            _ioDataStructureFileLockStream.Position = position;
                         }
                     }
-
-                    if (!cancelled)
+                    catch
                     {
-                        _ioDataStructureFileLockStream.WriteByte((byte)'\r');
-                        _ioDataStructureFileLockStream.WriteByte((byte)'\n');
-
-                        if (!_ioStructureObjectsDictionary[blockObject.BlockHeight].IsWritten)
-                            _totalIoCacheFileSize += dataLength;
-                        else
-                        {
-                            _totalIoCacheFileSize -= _ioStructureObjectsDictionary[blockObject.BlockHeight].IoDataSizeOnFile;
-                            _totalIoCacheFileSize += dataLength;
-                        }
-
-                        _ioStructureObjectsDictionary[blockObject.BlockHeight].IsWritten = true;
-                        _ioStructureObjectsDictionary[blockObject.BlockHeight].IoDataSizeOnFile = dataLength;
-                        _ioStructureObjectsDictionary[blockObject.BlockHeight].IoDataPosition = position;
-                        _lastIoCacheTotalFileSizeWritten += dataLength;
-
-                        _lastIoCacheFileLength = position + dataLength + 2;
-                        success = true;
+                        // Keep the cache marked as needing recovery by not advancing its committed length.
                     }
                 }
 
                 _ioOnWriteData = false;
             }
-            catch
-            {
-                _ioOnWriteData = false;
-            }
-
-            return success;
         }
 
         /// <summary>
-        /// Write directly a io data on the io cache file.
+        /// Replace or append IO cache records safely.
+        /// The in-memory index is changed only after the corresponding disk operation
+        /// has completed successfully. A full purge uses a same-directory temporary
+        /// file and File.Replace so the previous cache remains available on failure.
         /// </summary>
-        /// <param name="blockListObject"></param>
-        /// <param name="cancellation"></param>
-        /// <param name="fullPurge"></param>
-        /// <returns></returns>
-        private async Task ReplaceIoDataListOnIoStreamFile(Dictionary<long, ClassBlockObject> blockListObject, CancellationTokenSource cancellation, bool fullPurge)
+        private async Task<bool> ReplaceIoDataListOnIoStreamFile(
+            Dictionary<long, ClassBlockObject> blockListObject,
+            CancellationTokenSource cancellation,
+            bool fullPurge)
         {
+            if (blockListObject == null)
+                return false;
 
-            await WaitIoWriteDone(cancellation);
-
+            await WaitIoWriteDone(cancellation).ConfigureAwait(false);
             _ioOnWriteData = true;
+
+            string temporaryPath = _ioDataStructureFilePath + ".tmp";
+            string backupPath = _ioDataStructureFilePath + ".bak." + Guid.NewGuid().ToString("N");
+            bool replacementCommitted = false;
+            bool appendCommitted = false;
 
             try
             {
-                await ResetSeekLockStreamAsync(cancellation);
+                if (cancellation != null)
+                    cancellation.Token.ThrowIfCancellationRequested();
+
+                if (_ioStreamsClosed || _ioDataStructureFileLockStream == null)
+                    OpenLockStream();
 
                 if (fullPurge)
                 {
-                    string ioDataStructureFileBackupPath = _ioDataStructureFilePath + "copy";
+                    // Never overwrite the only valid copy while constructing a purge.
+                    if (File.Exists(temporaryPath))
+                        File.Delete(temporaryPath);
 
-                    bool cancelled = false;
+                    Dictionary<long, Tuple<long, long>> stagedPositions =
+                        new Dictionary<long, Tuple<long, long>>();
+                    HashSet<long> copiedFromExistingFile = new HashSet<long>();
+                    long stagedDataSize = 0;
 
-                    using (FileStream writer = new FileStream(ioDataStructureFileBackupPath, FileMode.Create, FileAccess.Write, FileShare.Read, _blockchainDatabaseSetting.BlockchainCacheSetting.IoCacheDiskWriteStreamBufferSize))
+                    using (FileStream writer = new FileStream(
+                        temporaryPath,
+                        FileMode.CreateNew,
+                        FileAccess.Write,
+                        FileShare.None,
+                        _blockchainDatabaseSetting.BlockchainCacheSetting.IoCacheDiskWriteStreamBufferSize,
+                        FileOptions.Asynchronous | FileOptions.SequentialScan))
                     {
-                        // Rewrite updated blocks from memory.
+                        // Preserve valid records that are not being replaced by memory data.
                         foreach (long blockHeight in _ioStructureObjectsDictionary.Keys.ToArray())
                         {
-                            if (!blockListObject.ContainsKey(blockHeight))
-                            {
-                                if (cancellation != null)
-                                {
-                                    if (cancellation.IsCancellationRequested)
-                                    {
-                                        cancelled = true;
-                                        break;
-                                    }
-                                }
+                            if (cancellation != null)
+                                cancellation.Token.ThrowIfCancellationRequested();
 
-                                if (!_ioStructureObjectsDictionary[blockHeight].IsDeleted)
-                                {
-                                    // If the data is indicated to be inside the io cache file.
-                                    if (_ioStructureObjectsDictionary[blockHeight].IsWritten)
-                                    {
-                                        if (cancellation != null)
-                                        {
-                                            if (cancellation.IsCancellationRequested)
-                                            {
-                                                cancelled = true;
-                                                break;
-                                            }
-                                        }
+                            if (blockListObject.ContainsKey(blockHeight))
+                                continue;
 
-                                        // Read by seek and position registered directly.
-                                        long ioDataPosition = _ioStructureObjectsDictionary[blockHeight].IoDataPosition;
-                                        long ioDataSize = _ioStructureObjectsDictionary[blockHeight].IoDataSizeOnFile;
+                            ClassCacheIoStructureObject structure = _ioStructureObjectsDictionary[blockHeight];
+                            if (structure.IsDeleted || !structure.IsWritten)
+                                continue;
 
-                                        // Read by seek and position registered directly.
-                                        _ioDataStructureFileLockStream.Position = ioDataPosition;
+                            long sourcePosition = structure.IoDataPosition;
+                            long sourceSize = structure.IoDataSizeOnFile;
+                            long sourceLength = _ioDataStructureFileLockStream.Length;
 
-                                        var readResult = await ReadByBlock(ioDataSize, cancellation, _ioDataStructureFileLockStream);
+                            if (sourcePosition < 0 || sourceSize <= 0 ||
+                                sourcePosition > sourceLength || sourceSize > sourceLength - sourcePosition)
+                                throw new IOException("Invalid cache record bounds during purge.");
 
-                                        if (readResult.Item1)
-                                        {
-                                            string ioDataLine = _ioDataUtf8Encoding.GetString(readResult.Item2);
+                            _ioDataStructureFileLockStream.Position = sourcePosition;
+                            Tuple<bool, byte[]> readResult = await ReadByBlock(
+                                sourceSize, cancellation, _ioDataStructureFileLockStream).ConfigureAwait(false);
 
-                                            if (BlockHeightMatchToIoDataLine(blockHeight, ioDataLine))
-                                            {
-                                                long position = writer.Position;
+                            if (!readResult.Item1 || readResult.Item2.LongLength != sourceSize)
+                                throw new IOException("Unable to read a complete cache record during purge.");
 
-                                                var writeResult = await WriteByBlock(readResult.Item2, cancellation, writer);
+                            string recordText = _ioDataUtf8Encoding.GetString(readResult.Item2);
+                            if (!BlockHeightMatchToIoDataLine(blockHeight, recordText))
+                                throw new IOException("Cache record identity validation failed during purge.");
 
-                                                if (writeResult.Item1)
-                                                {
+                            long targetPosition = writer.Position;
+                            Tuple<bool, long> writeResult = await WriteByBlock(
+                                readResult.Item2, cancellation, writer).ConfigureAwait(false);
 
-                                                    writer.WriteByte((byte)'\r');
-                                                    writer.WriteByte((byte)'\n');
+                            if (!writeResult.Item1 || writeResult.Item2 != sourceSize)
+                                throw new IOException("Unable to copy a complete cache record during purge.");
 
-                                                    if (!_ioStructureObjectsDictionary[blockHeight].IsWritten)
-                                                        _totalIoCacheFileSize += writeResult.Item2;
-                                                    else
-                                                    {
-                                                        _totalIoCacheFileSize -= _ioStructureObjectsDictionary[blockHeight].IoDataSizeOnFile;
-                                                        _totalIoCacheFileSize += writeResult.Item2;
-                                                    }
+                            writer.WriteByte((byte)'\r');
+                            writer.WriteByte((byte)'\n');
 
-                                                    if (!_ioStructureObjectsDictionary[blockHeight].IsNull)
-                                                        _ioStructureObjectsDictionary[blockHeight].BlockObject = null;
-
-                                                    _ioStructureObjectsDictionary[blockHeight].IoDataPosition = position;
-                                                    _ioStructureObjectsDictionary[blockHeight].IoDataSizeOnFile = writeResult.Item2;
-                                                    _ioStructureObjectsDictionary[blockHeight].IsWritten = true;
-
-                                                    _lastIoCacheFileLength = position + writeResult.Item2 + 2;
-                                                }
-                                                else
-                                                {
-                                                    cancelled = true;
-                                                    break;
-                                                }
-
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                            stagedPositions[blockHeight] = Tuple.Create(targetPosition, sourceSize);
+                            copiedFromExistingFile.Add(blockHeight);
+                            stagedDataSize += sourceSize;
                         }
 
-                        if (blockListObject.Count > 0 && !cancelled)
-                        {
-                            foreach (long blockHeight in blockListObject.Keys.ToArray())
-                            {
-                                if (cancellation != null)
-                                {
-                                    if (cancellation.IsCancellationRequested)
-                                    {
-                                        cancelled = true;
-                                        break;
-                                    }
-                                }
-
-                                long position = writer.Position;
-                                long dataLength = 0;
-
-                                foreach (string ioDataLine in BlockObjectToIoStringData(blockListObject[blockHeight], _blockchainDatabaseSetting, cancellation))
-                                {
-                                    if (cancellation != null)
-                                    {
-                                        if (cancellation.IsCancellationRequested)
-                                        {
-                                            cancelled = true;
-                                            break;
-                                        }
-                                    }
-
-                                    Tuple<bool, long> writeResult = await WriteByBlock(_ioDataUtf8Encoding.GetBytes(ioDataLine), cancellation, writer);
-
-                                    if (writeResult.Item1)
-                                        dataLength += writeResult.Item2;
-                                    else
-                                    {
-                                        cancelled = true;
-                                        break;
-                                    }
-                                }
-
-                                if (!cancelled)
-                                {
-                                    writer.WriteByte((byte)'\r');
-                                    writer.WriteByte((byte)'\n');
-
-                                    if (!_ioStructureObjectsDictionary[blockHeight].IsWritten)
-                                        _totalIoCacheFileSize += dataLength;
-                                    else
-                                    {
-                                        _totalIoCacheFileSize -= _ioStructureObjectsDictionary[blockHeight].IoDataSizeOnFile;
-                                        _totalIoCacheFileSize += dataLength;
-                                    }
-
-                                    if (!_ioStructureObjectsDictionary[blockHeight].IsNull)
-                                        _ioStructureObjectsDictionary[blockHeight].BlockObject = null;
-
-                                    _ioStructureObjectsDictionary[blockHeight].IoDataPosition = position;
-                                    _ioStructureObjectsDictionary[blockHeight].IoDataSizeOnFile = dataLength;
-                                    _ioStructureObjectsDictionary[blockHeight].IsWritten = true;
-                                    _lastIoCacheFileLength = position + dataLength + 2;
-
-                                    // Clean up.
-                                    blockListObject.Remove(blockHeight);
-                                }
-                                else
-                                    break;
-                            }
-                        }
-                    }
-
-                    if (!cancelled)
-                    {
-                        CloseLockStream();
-
-                        File.Delete(_ioDataStructureFilePath);
-                        File.Move(ioDataStructureFileBackupPath, _ioDataStructureFilePath);
-
-                        OpenLockStream();
-                    }
-                    else
-                        File.Delete(ioDataStructureFileBackupPath);
-                }
-                else
-                {
-                    if (blockListObject.Count > 0)
-                    {
-                        _ioDataStructureFileLockStream.Position = _lastIoCacheFileLength;
-
+                        // Append replacement/new records after preserved records.
                         foreach (long blockHeight in blockListObject.Keys.ToArray())
                         {
+                            if (cancellation != null)
+                                cancellation.Token.ThrowIfCancellationRequested();
 
+                            ClassBlockObject blockObject;
+                            if (!_ioStructureObjectsDictionary.ContainsKey(blockHeight) ||
+                                !blockListObject.TryGetValue(blockHeight, out blockObject) ||
+                                blockObject == null)
+                                throw new IOException("Invalid block supplied for cache purge.");
 
-                            long position = _ioDataStructureFileLockStream.Position;
-                            long dataLength = 0;
+                            long targetPosition = writer.Position;
+                            long recordSize = 0;
 
-                            bool cancelled = false;
-
-
-                            foreach (string ioDataLine in BlockObjectToIoStringData(blockListObject[blockHeight], _blockchainDatabaseSetting, cancellation))
+                            foreach (string ioDataLine in BlockObjectToIoStringData(
+                                blockObject, _blockchainDatabaseSetting, cancellation))
                             {
                                 if (cancellation != null)
-                                {
-                                    if (cancellation.IsCancellationRequested)
-                                    {
-                                        cancelled = true;
-                                        break;
-                                    }
-                                }
+                                    cancellation.Token.ThrowIfCancellationRequested();
 
-                                var writeResult = await WriteByBlock(_ioDataUtf8Encoding.GetBytes(ioDataLine), cancellation, _ioDataStructureFileLockStream);
+                                byte[] lineBytes = _ioDataUtf8Encoding.GetBytes(ioDataLine);
+                                Tuple<bool, long> writeResult = await WriteByBlock(
+                                    lineBytes, cancellation, writer).ConfigureAwait(false);
 
-                                if (writeResult.Item1)
-                                    dataLength += writeResult.Item2;
-                                else
-                                {
-                                    cancelled = true;
-                                    break;
-                                }
+                                if (!writeResult.Item1 || writeResult.Item2 != lineBytes.Length)
+                                    throw new IOException("Incomplete replacement record write.");
+
+                                recordSize += writeResult.Item2;
                             }
 
-                            if (!cancelled)
-                            {
-
-                                _ioDataStructureFileLockStream.WriteByte((byte)'\r');
-                                _ioDataStructureFileLockStream.WriteByte((byte)'\n');
-
-                                if (!_ioStructureObjectsDictionary[blockHeight].IsWritten)
-                                    _totalIoCacheFileSize += dataLength;
-                                else
-                                {
-                                    _totalIoCacheFileSize -= _ioStructureObjectsDictionary[blockHeight].IoDataSizeOnFile;
-                                    _totalIoCacheFileSize += dataLength;
-                                }
-
-                                _ioStructureObjectsDictionary[blockHeight].IoDataPosition = position;
-                                _ioStructureObjectsDictionary[blockHeight].IoDataSizeOnFile = dataLength;
-                                _ioStructureObjectsDictionary[blockHeight].IsWritten = true;
-                                _lastIoCacheTotalFileSizeWritten += dataLength;
-
-                                _lastIoCacheFileLength = position + dataLength + 2;
-
-                                // Clean up.
-                                blockListObject.Remove(blockHeight);
-                            }
-                            else
-                                break;
+                            writer.WriteByte((byte)'\r');
+                            writer.WriteByte((byte)'\n');
+                            stagedPositions[blockHeight] = Tuple.Create(targetPosition, recordSize);
+                            stagedDataSize += recordSize;
                         }
 
-                        await _ioDataStructureFileLockStream.FlushAsync(cancellation.Token);
+                        if (cancellation != null)
+                            cancellation.Token.ThrowIfCancellationRequested();
+
+                        await writer.FlushAsync().ConfigureAwait(false);
+                        // Flush(true) requests that buffered file data be pushed to the device.
+                        // It is synchronous by design and is available on the supported targets.
+                        writer.Flush(true);
+                    }
+
+                    // Cancellation is honored until the commit point. Once replacement starts,
+                    // complete the commit rather than abandoning an ambiguous file state.
+                    if (cancellation != null)
+                        cancellation.Token.ThrowIfCancellationRequested();
+
+                    CloseLockStream();
+                    try
+                    {
+                        // Source and destination are in the same directory/volume.
+                        // Keep a backup until the new stream has been reopened successfully.
+                        File.Replace(temporaryPath, _ioDataStructureFilePath, backupPath, true);
+                        replacementCommitted = true;
+                    }
+                    catch
+                    {
+                        // The original file is still authoritative if File.Replace failed.
+                        OpenLockStream();
+                        throw;
+                    }
+
+                    // Commit metadata only after the disk replacement succeeded.
+                    foreach (KeyValuePair<long, ClassCacheIoStructureObject> entry in _ioStructureObjectsDictionary)
+                    {
+                        if (entry.Value.IsWritten)
+                        {
+                            entry.Value.IsWritten = false;
+                            entry.Value.IoDataPosition = 0;
+                            entry.Value.IoDataSizeOnFile = 0;
+                        }
+                    }
+
+                    foreach (KeyValuePair<long, Tuple<long, long>> entry in stagedPositions)
+                    {
+                        ClassCacheIoStructureObject structure = _ioStructureObjectsDictionary[entry.Key];
+                        structure.IoDataPosition = entry.Value.Item1;
+                        structure.IoDataSizeOnFile = entry.Value.Item2;
+                        structure.IsWritten = true;
+                    }
+
+                    _totalIoCacheFileSize = stagedDataSize;
+                    _lastIoCacheFileLength = new FileInfo(_ioDataStructureFilePath).Length;
+
+                    foreach (long blockHeight in copiedFromExistingFile)
+                    {
+                        ClassCacheIoStructureObject structure = _ioStructureObjectsDictionary[blockHeight];
+                        if (!structure.IsNull)
+                            structure.BlockObject = null;
+                    }
+
+                    foreach (long blockHeight in blockListObject.Keys.ToArray())
+                    {
+                        ClassCacheIoStructureObject structure = _ioStructureObjectsDictionary[blockHeight];
+                        if (!structure.IsNull)
+                            structure.BlockObject = null;
+                        blockListObject.Remove(blockHeight);
+                    }
+
+                    OpenLockStream();
+                    if (File.Exists(backupPath))
+                        File.Delete(backupPath);
+
+                    return true;
+                }
+
+                // Append path: treat the whole batch as one transaction. If any record
+                // fails, truncate to the last committed boundary and leave metadata intact.
+                long appendStart = _lastIoCacheFileLength;
+                if (appendStart < 0 || _ioDataStructureFileLockStream.Length < appendStart)
+                    throw new IOException("Cache file is shorter than its committed length.");
+
+                if (_ioDataStructureFileLockStream.Length > appendStart)
+                {
+                    // Remove an uncommitted tail left by an earlier interrupted write.
+                    _ioDataStructureFileLockStream.SetLength(appendStart);
+                    await _ioDataStructureFileLockStream.FlushAsync().ConfigureAwait(false);
+                }
+
+                Dictionary<long, Tuple<long, long>> appendPositions =
+                    new Dictionary<long, Tuple<long, long>>();
+                long appendDataSize = 0;
+                _ioDataStructureFileLockStream.Position = appendStart;
+
+                foreach (long blockHeight in blockListObject.Keys.ToArray())
+                {
+                    if (cancellation != null)
+                        cancellation.Token.ThrowIfCancellationRequested();
+
+                    ClassBlockObject blockObject;
+                    if (!_ioStructureObjectsDictionary.ContainsKey(blockHeight) ||
+                        !blockListObject.TryGetValue(blockHeight, out blockObject) ||
+                        blockObject == null)
+                        throw new IOException("Invalid block supplied for cache append.");
+
+                    long recordPosition = _ioDataStructureFileLockStream.Position;
+                    long recordSize = 0;
+
+                    foreach (string ioDataLine in BlockObjectToIoStringData(
+                        blockObject, _blockchainDatabaseSetting, cancellation))
+                    {
+                        if (cancellation != null)
+                            cancellation.Token.ThrowIfCancellationRequested();
+
+                        byte[] lineBytes = _ioDataUtf8Encoding.GetBytes(ioDataLine);
+                        Tuple<bool, long> writeResult = await WriteByBlock(
+                            lineBytes, cancellation, _ioDataStructureFileLockStream).ConfigureAwait(false);
+
+                        if (!writeResult.Item1 || writeResult.Item2 != lineBytes.Length)
+                            throw new IOException("Incomplete cache append write.");
+
+                        recordSize += writeResult.Item2;
+                    }
+
+                    _ioDataStructureFileLockStream.WriteByte((byte)'\r');
+                    _ioDataStructureFileLockStream.WriteByte((byte)'\n');
+                    appendPositions[blockHeight] = Tuple.Create(recordPosition, recordSize);
+                    appendDataSize += recordSize;
+                }
+
+                if (cancellation != null)
+                    cancellation.Token.ThrowIfCancellationRequested();
+
+                await _ioDataStructureFileLockStream.FlushAsync().ConfigureAwait(false);
+                _ioDataStructureFileLockStream.Flush(true);
+
+                // Commit all in-memory metadata together, after the complete batch is durable.
+                foreach (KeyValuePair<long, Tuple<long, long>> entry in appendPositions)
+                {
+                    ClassCacheIoStructureObject structure = _ioStructureObjectsDictionary[entry.Key];
+                    long previousSize = structure.IsWritten ? structure.IoDataSizeOnFile : 0;
+                    _totalIoCacheFileSize = Math.Max(0, _totalIoCacheFileSize - previousSize) + entry.Value.Item2;
+                    structure.IoDataPosition = entry.Value.Item1;
+                    structure.IoDataSizeOnFile = entry.Value.Item2;
+                    structure.IsWritten = true;
+                    blockListObject.Remove(entry.Key);
+                }
+
+                _lastIoCacheFileLength = _ioDataStructureFileLockStream.Length;
+                _lastIoCacheTotalFileSizeWritten += appendDataSize;
+                appendCommitted = true;
+                return true;
+            }
+            catch (OperationCanceledException)
+            {
+                return false;
+            }
+            catch (Exception)
+            {
+                // If the atomic rename already happened, the new disk image is committed
+                // even if reopening the stream or cleanup subsequently failed.
+                return replacementCommitted;
+            }
+            finally
+            {
+                if (fullPurge && !replacementCommitted && File.Exists(temporaryPath))
+                {
+                    try { File.Delete(temporaryPath); }
+                    catch { /* A stale temp file is harmless; the original remains authoritative. */ }
+                }
+
+                if (!replacementCommitted && !appendCommitted && !fullPurge &&
+                    _ioDataStructureFileLockStream != null)
+                {
+                    try
+                    {
+                        // Do not extend a file that was already shorter than the committed
+                        // index; that condition requires recovery, not zero-padding.
+                        if (_ioDataStructureFileLockStream.Length >= _lastIoCacheFileLength)
+                        {
+                            _ioDataStructureFileLockStream.SetLength(_lastIoCacheFileLength);
+                            _ioDataStructureFileLockStream.Position = _lastIoCacheFileLength;
+                            await _ioDataStructureFileLockStream.FlushAsync().ConfigureAwait(false);
+                        }
+                    }
+                    catch
+                    {
+                        // The committed length remains unchanged; startup indexing must
+                        // validate the file before trusting any trailing bytes.
                     }
                 }
 
                 _ioOnWriteData = false;
-            }
-            catch
-            {
-                _ioOnWriteData = false;
-                OpenLockStream();
-            }
 
+                if (_ioStreamsClosed || _ioDataStructureFileLockStream == null)
+                {
+                    try { OpenLockStream(); }
+                    catch { /* Preserve the original failure; a later operation may retry. */ }
+                }
+            }
         }
 
         /// <summary>
@@ -1722,73 +1800,52 @@ namespace Xenophyte_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Disk.
         /// <returns></returns>
         private async Task<Tuple<bool, long>> WriteByBlock(byte[] data, CancellationTokenSource cancellation, FileStream ioFileStream)
         {
-            bool writeStatus = _ioDataStructureFileLockStream.CanWrite;
-            long dataSizeWritten = 0;
+            if (data == null || ioFileStream == null || !ioFileStream.CanWrite)
+                return new Tuple<bool, long>(false, 0);
 
+            long totalWritten = 0;
             int percentWrite = _blockchainDatabaseSetting.BlockchainCacheSetting.IoCacheDiskMinPercentWriteFromBlockDataSize;
-            long sizeByBlockToWrite = (data.Length * percentWrite) / 100;
+            long configuredChunkSize = ((long)data.Length * percentWrite) / 100;
+            if (configuredChunkSize <= 0)
+                configuredChunkSize = _blockchainDatabaseSetting.BlockchainCacheSetting.IoCacheDiskMinWriteByBlockSize;
 
-            if (sizeByBlockToWrite <= 0)
-                sizeByBlockToWrite = _blockchainDatabaseSetting.BlockchainCacheSetting.IoCacheDiskMinWriteByBlockSize;
+            // Keep chunk sizes valid for array/Stream APIs and avoid allocating a new array per chunk.
+            int chunkSize = (int)Math.Max(1, Math.Min((long)data.Length, Math.Min(configuredChunkSize, int.MaxValue)));
 
-            if (writeStatus)
+            try
             {
-                long tmpWriteBeforeSleep = 0;
-
-                while (dataSizeWritten != data.Length && writeStatus)
+                while (totalWritten < data.Length)
                 {
-                    try
-                    {
-                        if (cancellation != null)
-                        {
-                            if (cancellation.IsCancellationRequested)
-                            {
-                                writeStatus = false;
-                                break;
-                            }
-                        }
+                    if (cancellation != null)
+                        cancellation.Token.ThrowIfCancellationRequested();
 
-                        if (dataSizeWritten + sizeByBlockToWrite < data.Length)
-                        {
-                            byte[] blockData = new byte[sizeByBlockToWrite];
+                    int count = (int)Math.Min(chunkSize, data.Length - totalWritten);
+                    if (cancellation == null)
+                        await ioFileStream.WriteAsync(data, (int)totalWritten, count).ConfigureAwait(false);
+                    else
+                        await ioFileStream.WriteAsync(data, (int)totalWritten, count, cancellation.Token).ConfigureAwait(false);
 
-                            Array.Copy(data, dataSizeWritten, blockData, 0, blockData.Length);
-
-                            await ioFileStream.WriteAsync(blockData, 0, blockData.Length, cancellation.Token);
-
-                            dataSizeWritten += sizeByBlockToWrite;
-                            tmpWriteBeforeSleep += sizeByBlockToWrite;
-                        }
-                        else
-                        {
-                            long rest = data.Length - dataSizeWritten;
-
-                            if (rest > 0)
-                            {
-                                byte[] blockData = new byte[rest];
-
-                                Array.Copy(data, dataSizeWritten, blockData, 0, blockData.Length);
-
-                                await ioFileStream.WriteAsync(blockData, 0, blockData.Length, cancellation.Token);
-
-                                dataSizeWritten += rest;
-                                tmpWriteBeforeSleep += rest;
-                            }
-                        }
-
-                        if (dataSizeWritten >= data.Length)
-                            break;
-                    }
-                    catch
-                    {
-                        writeStatus = false;
-                        break;
-                    }
+                    totalWritten += count;
                 }
 
+                return new Tuple<bool, long>(true, totalWritten);
             }
-
-            return new Tuple<bool, long>(writeStatus, dataSizeWritten);
+            catch (OperationCanceledException)
+            {
+                return new Tuple<bool, long>(false, totalWritten);
+            }
+            catch (IOException)
+            {
+                return new Tuple<bool, long>(false, totalWritten);
+            }
+            catch (ObjectDisposedException)
+            {
+                return new Tuple<bool, long>(false, totalWritten);
+            }
+            catch (Exception)
+            {
+                return new Tuple<bool, long>(false, totalWritten);
+            }
         }
 
         #endregion
@@ -1800,11 +1857,15 @@ namespace Xenophyte_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Disk.
         /// </summary>
         public void CloseLockStream()
         {
-            if (!_ioStreamsClosed)
-            {
-                _ioDataStructureFileLockStream.Close();
-                _ioStreamsClosed = true;
-            }
+            // Idempotent: cleanup may be requested after a failed open/close path.
+            if (_ioStreamsClosed && _ioDataStructureFileLockStream == null)
+                return;
+
+            FileStream stream = _ioDataStructureFileLockStream;
+            _ioDataStructureFileLockStream = null;
+            _ioStreamsClosed = true;
+            if (stream != null)
+                stream.Dispose();
         }
 
         /// <summary>
@@ -1812,11 +1873,21 @@ namespace Xenophyte_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Disk.
         /// </summary>
         private void OpenLockStream()
         {
-            if (_ioStreamsClosed)
-            {
-                _ioDataStructureFileLockStream = new FileStream(_ioDataStructureFilePath, FileMode.Open, FileAccess.ReadWrite, FileShare.Read, _blockchainDatabaseSetting.BlockchainCacheSetting.IoCacheDiskReadStreamBufferSize, FileOptions.Asynchronous | FileOptions.RandomAccess);
-                _ioStreamsClosed = false;
-            }
+            if (!_ioStreamsClosed && _ioDataStructureFileLockStream != null)
+                return;
+
+            // Assign only after the constructor succeeds, so a failed open does not
+            // leave the object claiming to own a usable stream.
+            FileStream stream = new FileStream(
+                _ioDataStructureFilePath,
+                FileMode.OpenOrCreate,
+                FileAccess.ReadWrite,
+                FileShare.Read,
+                _blockchainDatabaseSetting.BlockchainCacheSetting.IoCacheDiskReadStreamBufferSize,
+                FileOptions.Asynchronous | FileOptions.RandomAccess);
+
+            _ioDataStructureFileLockStream = stream;
+            _ioStreamsClosed = false;
         }
 
         /// <summary>
@@ -1864,29 +1935,22 @@ namespace Xenophyte_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Disk.
         /// <returns></returns>
         private async Task WaitIoWriteDone(CancellationTokenSource cancellation)
         {
-            if (_ioOnWriteData)
+            // Never continue while a write is active merely because the caller was
+            // cancelled. Doing so could let a reader seek on the same FileStream.
+            while (_ioOnWriteData)
             {
-                while (_ioOnWriteData)
-                {
-                    if (cancellation != null)
-                    {
-                        if (cancellation.IsCancellationRequested)
-                            break;
+                if (cancellation != null)
+                    cancellation.Token.ThrowIfCancellationRequested();
 
-                        try
-                        {
-                            await Task.Delay(_blockchainDatabaseSetting.BlockchainCacheSetting.IoCacheDiskParallelTaskWaitDelay, cancellation.Token);
-                        }
-                        catch
-                        {
-                            break;
-                        }
-                    }
-                    else
-                        await Task.Delay(_blockchainDatabaseSetting.BlockchainCacheSetting.IoCacheDiskParallelTaskWaitDelay);
-
-                }
+                int delay = Math.Max(1, _blockchainDatabaseSetting.BlockchainCacheSetting.IoCacheDiskParallelTaskWaitDelay);
+                if (cancellation == null)
+                    await Task.Delay(delay).ConfigureAwait(false);
+                else
+                    await Task.Delay(delay, cancellation.Token).ConfigureAwait(false);
             }
+
+            if (cancellation != null)
+                cancellation.Token.ThrowIfCancellationRequested();
         }
 
         #endregion
