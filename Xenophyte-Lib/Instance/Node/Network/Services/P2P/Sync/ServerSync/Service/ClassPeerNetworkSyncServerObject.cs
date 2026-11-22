@@ -36,11 +36,6 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Servi
 
         private bool _disposed;
 
-        ~ClassPeerNetworkSyncServerObject()
-        {
-            Dispose(true);
-        }
-
         public void Dispose()
         {
             Dispose(true);
@@ -54,7 +49,9 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Servi
                 return;
 
             if (disposing)
+            {
                 StopPeerServer();
+            }
 
             _disposed = true;
         }
@@ -69,10 +66,18 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Servi
         /// <param name="firewallSettingObject">The firewall setting object.</param>
         public ClassPeerNetworkSyncServerObject(ClassPeerDatabase peerDatabase, string peerIpOpenNatServer, ClassPeerNetworkSettingObject peerNetworkSettingObject, ClassPeerFirewallSettingObject firewallSettingObject)
         {
+            if (peerDatabase == null)
+                throw new ArgumentNullException(nameof(peerDatabase));
+            if (peerNetworkSettingObject == null)
+                throw new ArgumentNullException(nameof(peerNetworkSettingObject));
+            if (firewallSettingObject == null)
+                throw new ArgumentNullException(nameof(firewallSettingObject));
+
             _peerDatabase = peerDatabase;
             PeerIpOpenNatServer = peerIpOpenNatServer;
             _peerNetworkSettingObject = peerNetworkSettingObject;
             _firewallSettingObject = firewallSettingObject;
+            _listPeerIncomingConnectionObject = new ConcurrentDictionary<string, ClassPeerIncomingConnectionObject>();
         }
 
         #region Peer Server management functions.
@@ -84,10 +89,10 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Servi
         public bool StartPeerServer()
         {
 
-            if (_listPeerIncomingConnectionObject == null)
-                _listPeerIncomingConnectionObject = new ConcurrentDictionary<string, ClassPeerIncomingConnectionObject>();
-            else
-                CleanUpAllIncomingConnection();
+            if (_disposed || NetworkPeerServerStatus)
+                return false;
+
+            CleanUpAllIncomingConnection();
 
             try
             {
@@ -100,16 +105,17 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Servi
                 return false;
             }
 
-            NetworkPeerServerStatus = true;
             _cancellationTokenSourcePeerServer = new CancellationTokenSource();
+            NetworkPeerServerStatus = true;
 
             TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
             {
                 while (NetworkPeerServerStatus)
                 {
+                    ClassCustomSocket clientPeerTcp = null;
                     try
                     {
-                        ClassCustomSocket clientPeerTcp = new ClassCustomSocket(await _tcpListenerPeer.AcceptSocketAsync(), true);
+                        clientPeerTcp = new ClassCustomSocket(await _tcpListenerPeer.AcceptSocketAsync(), true);
 
                         string clientIp = clientPeerTcp.GetIp;
 
@@ -131,6 +137,8 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Servi
                                     case ClassPeerNetworkServerHandleConnectionEnum.HANDLE_CLIENT_EXCEPTION:
                                     case ClassPeerNetworkServerHandleConnectionEnum.INSERT_CLIENT_IP_EXCEPTION:
                                     case ClassPeerNetworkServerHandleConnectionEnum.TOO_MUCH_ACTIVE_CONNECTION_CLIENT:
+                                    case ClassPeerNetworkServerHandleConnectionEnum.BAD_RANDOM_ID:
+                                    case ClassPeerNetworkServerHandleConnectionEnum.INSERT_CLIENT_EXCEPTION:
 #endif
 
                                     {
@@ -145,7 +153,12 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Servi
                     }
                     catch
                     {
-                        // Ignored, catch the exception once the task is cancelled.
+                        // A socket accepted just before a scheduling failure must not leak.
+                        try { clientPeerTcp?.Kill(SocketShutdown.Both); } catch { }
+
+                        // Listener shutdown is expected during cancellation.
+                        if (!NetworkPeerServerStatus)
+                            break;
                     }
                 }
             }), 0, _cancellationTokenSourcePeerServer).Wait();
@@ -159,9 +172,9 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Servi
         /// </summary>
         public void StopPeerServer()
         {
-            if (NetworkPeerServerStatus)
+            NetworkPeerServerStatus = false;
+            try
             {
-                NetworkPeerServerStatus = false;
                 try
                 {
                     if (_cancellationTokenSourcePeerServer != null)
@@ -183,7 +196,13 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Servi
                     // Ignored.
                 }
 
+            }
+            finally
+            {
                 CleanUpAllIncomingConnection();
+                // Do not dispose the token source here: accepted connection tasks may
+                // still be unwinding and may still be reading its token.
+                _tcpListenerPeer = null;
             }
         }
 
@@ -196,76 +215,91 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Servi
         /// <returns>Return the handling status of the incoming connection.</returns>
         private async Task<ClassPeerNetworkServerHandleConnectionEnum> HandleIncomingConnection(string clientIp, ClassCustomSocket clientPeerTcp, string peerIpOpenNatServer)
         {
+            long randomId = -1;
+            ClassPeerIncomingConnectionObject incomingConnections = null;
+            ClassPeerNetworkClientServerObject peerClient = null;
+            bool semaphoreAcquired = false;
+            bool handlerCompleted = false;
+
             try
             {
+                if (clientPeerTcp == null || string.IsNullOrEmpty(clientIp) ||
+                    _cancellationTokenSourcePeerServer == null ||
+                    _cancellationTokenSourcePeerServer.IsCancellationRequested)
+                    return ClassPeerNetworkServerHandleConnectionEnum.HANDLE_CLIENT_EXCEPTION;
 
-                // Do not check the client ip if this is the same connection.
-                if (_peerNetworkSettingObject.ListenIp != clientIp && _firewallSettingObject.PeerEnableFirewallLink)
-                {
-                    if (!ClassPeerFirewallManager.CheckClientIpStatus(clientIp))
-                        return ClassPeerNetworkServerHandleConnectionEnum.BAD_CLIENT_STATUS;
-                }
+                if (_peerNetworkSettingObject.ListenIp != clientIp && _firewallSettingObject.PeerEnableFirewallLink &&
+                    !ClassPeerFirewallManager.CheckClientIpStatus(clientIp))
+                    return ClassPeerNetworkServerHandleConnectionEnum.BAD_CLIENT_STATUS;
 
-
-                if (GetTotalActiveConnection(clientIp, _cancellationTokenSourcePeerServer) > _peerNetworkSettingObject.PeerMaxNodeConnectionPerIp)
+                if (GetTotalActiveConnection(clientIp, _cancellationTokenSourcePeerServer) >=
+                    _peerNetworkSettingObject.PeerMaxNodeConnectionPerIp)
                     return ClassPeerNetworkServerHandleConnectionEnum.TOO_MUCH_ACTIVE_CONNECTION_CLIENT;
 
-                if (_listPeerIncomingConnectionObject.Count >= int.MaxValue - 1)
-                {
-                    CleanUpAllIncomingClosedConnection(out _);
-                    return ClassPeerNetworkServerHandleConnectionEnum.INSERT_CLIENT_IP_EXCEPTION;
-                }
+                incomingConnections = _listPeerIncomingConnectionObject.GetOrAdd(
+                    clientIp, _ => new ClassPeerIncomingConnectionObject(_peerNetworkSettingObject));
 
-                // If it's a new incoming connection, create a new index of incoming connection.
-                if (!_listPeerIncomingConnectionObject.ContainsKey(clientIp))
-                {
-                    if (!_listPeerIncomingConnectionObject.TryAdd(clientIp, new ClassPeerIncomingConnectionObject(_peerNetworkSettingObject)))
-                        return ClassPeerNetworkServerHandleConnectionEnum.INSERT_CLIENT_IP_EXCEPTION;
-                }
+                randomId = await GeneratePeerUniqueIdAsync(clientPeerTcp, _cancellationTokenSourcePeerServer)
+                    .ConfigureAwait(false);
 
-                #region Ensure to not have too much incoming connection from the same ip.
-
-                long randomId = await GeneratePeerUniqueIdAsync(clientPeerTcp, _cancellationTokenSourcePeerServer);
-
-                if (randomId == -1)
+                if (randomId < 0)
                     return ClassPeerNetworkServerHandleConnectionEnum.BAD_RANDOM_ID;
 
-                if (!_listPeerIncomingConnectionObject[clientIp].ListPeerClientObject.TryAdd(randomId,
-                    new ClassPeerNetworkClientServerObject(_peerDatabase, clientPeerTcp, _cancellationTokenSourcePeerServer, clientIp, peerIpOpenNatServer, _peerNetworkSettingObject, _firewallSettingObject)))
+                peerClient = new ClassPeerNetworkClientServerObject(
+                    _peerDatabase, clientPeerTcp, _cancellationTokenSourcePeerServer,
+                    clientIp, peerIpOpenNatServer, _peerNetworkSettingObject, _firewallSettingObject);
+
+                if (!incomingConnections.ListPeerClientObject.TryAdd(randomId, peerClient))
                     return ClassPeerNetworkServerHandleConnectionEnum.INSERT_CLIENT_EXCEPTION;
 
-
-                #endregion
-
-                bool handlePeerClientStatus = false;
-                try
+                // Use one linked token source and dispose it deterministically.
+                using (CancellationTokenSource timeoutSource =
+                    new CancellationTokenSource(_peerNetworkSettingObject.PeerMaxSemaphoreConnectAwaitDelay))
+                using (CancellationTokenSource linkedSource =
+                    CancellationTokenSource.CreateLinkedTokenSource(
+                        _cancellationTokenSourcePeerServer.Token, timeoutSource.Token))
                 {
-                    // Against flood.
-                    handlePeerClientStatus = await _listPeerIncomingConnectionObject[clientIp].SemaphoreHandleConnection.TryWaitAsync(_peerNetworkSettingObject.PeerMaxSemaphoreConnectAwaitDelay, CancellationTokenSource.CreateLinkedTokenSource(_cancellationTokenSourcePeerServer.Token, new CancellationTokenSource(_peerNetworkSettingObject.PeerMaxSemaphoreConnectAwaitDelay).Token));
+                    semaphoreAcquired = await incomingConnections.SemaphoreHandleConnection.TryWaitAsync(
+                        _peerNetworkSettingObject.PeerMaxSemaphoreConnectAwaitDelay, linkedSource)
+                        .ConfigureAwait(false);
 
-                    if (handlePeerClientStatus)
-                        await _listPeerIncomingConnectionObject[clientIp].ListPeerClientObject[randomId].HandlePeerClient();
-                    else
-                    {
-                        _listPeerIncomingConnectionObject[clientIp].ListPeerClientObject[randomId].Dispose();
+                    if (!semaphoreAcquired)
                         return ClassPeerNetworkServerHandleConnectionEnum.TOO_MUCH_ACTIVE_CONNECTION_CLIENT;
-                    }
 
-                }
-                finally
-                {
-                    if (handlePeerClientStatus)
-                        _listPeerIncomingConnectionObject[clientIp].SemaphoreHandleConnection.Release();
+                    await peerClient.HandlePeerClient().ConfigureAwait(false);
                 }
 
+                handlerCompleted = true;
+                return ClassPeerNetworkServerHandleConnectionEnum.VALID_HANDLE;
+            }
+            catch (OperationCanceledException)
+            {
+                return ClassPeerNetworkServerHandleConnectionEnum.HANDLE_CLIENT_EXCEPTION;
             }
             catch (Exception error)
             {
-                ClassLog.WriteLine("Cannot handle incoming connection from: " + clientIp + " | Exception: " + error.Message, ClassEnumLogLevelType.LOG_LEVEL_PEER_SERVER, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Red);
+                ClassLog.WriteLine("Cannot handle incoming connection from: " + clientIp +
+                    " | Exception: " + error.Message, ClassEnumLogLevelType.LOG_LEVEL_PEER_SERVER,
+                    ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Red);
 
                 return ClassPeerNetworkServerHandleConnectionEnum.HANDLE_CLIENT_EXCEPTION;
             }
-            return ClassPeerNetworkServerHandleConnectionEnum.VALID_HANDLE;
+            finally
+            {
+                if (semaphoreAcquired && incomingConnections != null)
+                {
+                    try { incomingConnections.SemaphoreHandleConnection.Release(); }
+                    catch { /* Semaphore may already be disposed during server shutdown. */ }
+                }
+
+                // A client is retained only while its handler is successfully running/completed.
+                if (peerClient != null && !handlerCompleted)
+                {
+                    if (incomingConnections != null && randomId >= 0)
+                        incomingConnections.ListPeerClientObject.TryRemove(randomId, out _);
+                    try { peerClient.Dispose(); } catch { }
+                }
+            }
         }
 
         #endregion
@@ -280,32 +314,33 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Servi
         /// <returns></returns>
         public async Task<long> GeneratePeerUniqueIdAsync(ClassCustomSocket client, CancellationTokenSource cancellation)
         {
-
-            long randomId = -1;
+            if (client == null || cancellation == null || _listPeerIncomingConnectionObject == null)
+                return -1;
 
             try
             {
-                while (client.IsConnected())
+                while (!cancellation.IsCancellationRequested && client.IsConnected())
                 {
-                    randomId = ClassUtility.GetRandomBetweenInt(0, int.MaxValue - 1);
-
-                    if (cancellation.IsCancellationRequested)
+                    if (!_listPeerIncomingConnectionObject.TryGetValue(client.GetIp, out ClassPeerIncomingConnectionObject incoming))
                         return -1;
 
-                    if (!_listPeerIncomingConnectionObject[client.GetIp].ListPeerClientObject.ContainsKey(randomId))
-                        break;
+                    long randomId = ClassUtility.GetRandomBetweenInt(0, int.MaxValue - 1);
+                    if (!incoming.ListPeerClientObject.ContainsKey(randomId))
+                        return randomId;
 
-
-                    await Task.Delay(1);
+                    await Task.Delay(1, cancellation.Token).ConfigureAwait(false);
                 }
-
+            }
+            catch (OperationCanceledException)
+            {
+                return -1;
             }
             catch
             {
                 return -1;
             }
 
-            return randomId;
+            return -1;
         }
 
         /// <summary>
@@ -315,31 +350,24 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Servi
         /// <returns>Return the amount of total connection of a client IP.</returns>
         private int GetTotalActiveConnection(string clientIp, CancellationTokenSource cancellation)
         {
-            if (_listPeerIncomingConnectionObject.Count == 0 ||
-                !_listPeerIncomingConnectionObject.ContainsKey(clientIp) ||
-                _listPeerIncomingConnectionObject[clientIp].ListPeerClientObject.Count == 0)
+            if (cancellation == null ||
+                !_listPeerIncomingConnectionObject.TryGetValue(clientIp, out ClassPeerIncomingConnectionObject incoming))
                 return 0;
 
-
             int totalActiveConnection = 0;
-
-
-            foreach (long key in _listPeerIncomingConnectionObject[clientIp].ListPeerClientObject.Keys.ToArray())
+            foreach (var peerClient in incoming.ListPeerClientObject.Values)
             {
                 if (cancellation.IsCancellationRequested)
                     break;
 
-                if (!_listPeerIncomingConnectionObject[clientIp].ListPeerClientObject.ContainsKey(key))
-                    continue;
-
                 try
                 {
-                    if (_listPeerIncomingConnectionObject[clientIp].ListPeerClientObject[key].ClientPeerConnectionStatus)
+                    if (peerClient != null && peerClient.ClientPeerConnectionStatus)
                         totalActiveConnection++;
                 }
                 catch
                 {
-                    // Ignored.
+                    // A connection may be disposed while its status is being read.
                 }
             }
 
@@ -352,33 +380,23 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Servi
         /// <returns>Return the amount of total active connections.</returns>
         public long GetAllTotalActiveConnection()
         {
-
             long totalActiveConnection = 0;
 
-            if (_listPeerIncomingConnectionObject.Count > 0)
+            foreach (ClassPeerIncomingConnectionObject incoming in _listPeerIncomingConnectionObject.Values)
             {
-                using (DisposableList<string> listClientIpKeys = new DisposableList<string>(false, 0, _listPeerIncomingConnectionObject.Keys.ToList()))
+                if (incoming == null)
+                    continue;
+
+                foreach (ClassPeerNetworkClientServerObject peerClient in incoming.ListPeerClientObject.Values)
                 {
-                    foreach (var clientIp in listClientIpKeys.GetList)
+                    try
                     {
-                        if (_listPeerIncomingConnectionObject[clientIp].ListPeerClientObject.Count > 0)
-                        {
-                            foreach (long key in _listPeerIncomingConnectionObject[clientIp].ListPeerClientObject.Keys.ToArray())
-                            {
-
-                                try
-                                {
-                                    if (_listPeerIncomingConnectionObject[clientIp].ListPeerClientObject.ContainsKey(key)
-                                        && _listPeerIncomingConnectionObject[clientIp].ListPeerClientObject[key].ClientPeerConnectionStatus)
-                                        totalActiveConnection++;
-
-                                }
-                                catch
-                                {
-                                    // Ignored.
-                                }
-                            }
-                        }
+                        if (peerClient != null && peerClient.ClientPeerConnectionStatus)
+                            totalActiveConnection++;
+                    }
+                    catch
+                    {
+                        // A connection may be disposed while its status is being read.
                     }
                 }
             }
@@ -394,49 +412,34 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Servi
         {
             int totalRemoved = 0;
 
-            if (_listPeerIncomingConnectionObject.Count > 0)
+            if (string.IsNullOrEmpty(clientIp) ||
+                !_listPeerIncomingConnectionObject.TryGetValue(clientIp, out ClassPeerIncomingConnectionObject incoming) ||
+                incoming == null)
+                return totalRemoved;
+
+            long currentTimestamp = TaskManager.TaskManager.CurrentTimestampSecond;
+            foreach (var pair in incoming.ListPeerClientObject.ToArray())
             {
-                if (_listPeerIncomingConnectionObject.ContainsKey(clientIp))
+                bool shouldRemove = pair.Value == null;
+
+                if (!shouldRemove)
                 {
-                    if (_listPeerIncomingConnectionObject[clientIp].ListPeerClientObject.Count > 0)
+                    try
                     {
-                        //_listPeerIncomingConnectionObject[clientIp].OnCleanUp = true;
-
-                        using (DisposableList<long> listKey = new DisposableList<long>(false, 0, _listPeerIncomingConnectionObject[clientIp].ListPeerClientObject.Keys.ToList()))
-                        {
-                            foreach (var key in listKey.GetList)
-                            {
-                                bool remove = false;
-
-                                if (_listPeerIncomingConnectionObject[clientIp].ListPeerClientObject[key] == null)
-                                    remove = true;
-                                else
-                                {
-                                    try
-                                    {
-                                        if (!_listPeerIncomingConnectionObject[clientIp].ListPeerClientObject[key].ClientPeerConnectionStatus ||
-                                            _listPeerIncomingConnectionObject[clientIp].ListPeerClientObject[key].ClientPeerLastPacketReceived + _peerNetworkSettingObject.PeerMaxDelayConnection < TaskManager.TaskManager.CurrentTimestampSecond)
-                                        {
-                                            _listPeerIncomingConnectionObject[clientIp].ListPeerClientObject[key].Dispose();
-                                            remove = true;
-                                        }
-                                    }
-                                    catch
-                                    {
-                                        // Ignored.
-                                    }
-                                }
-
-                                if (remove)
-                                {
-                                    if (_listPeerIncomingConnectionObject[clientIp].ListPeerClientObject.TryRemove(key, out _))
-                                        totalRemoved++;
-                                }
-                            }
-                        }
-
-                        //_listPeerIncomingConnectionObject[clientIp].OnCleanUp = false;
+                        shouldRemove = !pair.Value.ClientPeerConnectionStatus ||
+                            pair.Value.ClientPeerLastPacketReceived + _peerNetworkSettingObject.PeerMaxDelayConnection < currentTimestamp;
                     }
+                    catch
+                    {
+                        // Treat an unreadable/disposed connection as stale.
+                        shouldRemove = true;
+                    }
+                }
+
+                if (shouldRemove && incoming.ListPeerClientObject.TryRemove(pair.Key, out ClassPeerNetworkClientServerObject removed))
+                {
+                    try { removed?.Dispose(); } catch { }
+                    totalRemoved++;
                 }
             }
 
@@ -453,28 +456,22 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Servi
             long totalConnectionClosed = 0;
             totalIp = 0;
 
-            if (_listPeerIncomingConnectionObject.Count > 0)
+            foreach (var pair in _listPeerIncomingConnectionObject.ToArray())
             {
-
-                using (DisposableList<string> peerIncomingConnectionKeyList = new DisposableList<string>(false, 0, _listPeerIncomingConnectionObject.Keys.ToList()))
+                ClassPeerIncomingConnectionObject incoming = pair.Value;
+                if (incoming == null)
                 {
-                    foreach (var peerIncomingConnectionKey in peerIncomingConnectionKeyList.GetList)
-                    {
-
-                        if (_listPeerIncomingConnectionObject[peerIncomingConnectionKey] != null && _listPeerIncomingConnectionObject[peerIncomingConnectionKey].ListPeerClientObject?.Count > 0)
-                        {
-                            long totalClosed = CleanUpInactiveConnectionFromClientIpTarget(peerIncomingConnectionKey);
-
-                            if (totalClosed > 0)
-                                totalIp++;
-
-                            totalConnectionClosed += totalClosed;
-                        }
-
-                        if (_listPeerIncomingConnectionObject[peerIncomingConnectionKey].ListPeerClientObject.Count == 0)
-                            _listPeerIncomingConnectionObject.TryRemove(peerIncomingConnectionKey, out _);
-                    }
+                    _listPeerIncomingConnectionObject.TryRemove(pair.Key, out _);
+                    continue;
                 }
+
+                long totalClosed = CleanUpInactiveConnectionFromClientIpTarget(pair.Key);
+                if (totalClosed > 0)
+                    totalIp++;
+                totalConnectionClosed += totalClosed;
+
+                if (incoming.ListPeerClientObject.IsEmpty)
+                    _listPeerIncomingConnectionObject.TryRemove(pair.Key, out _);
             }
 
             return totalConnectionClosed;
@@ -488,43 +485,31 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Servi
         {
             long totalConnectionClosed = 0;
 
-            if (_listPeerIncomingConnectionObject.Count > 0)
+            foreach (var pair in _listPeerIncomingConnectionObject.ToArray())
             {
-
-                using (DisposableList<string> peerIncomingConnectionKeyList = new DisposableList<string>(false, 0, _listPeerIncomingConnectionObject.Keys.ToList()))
+                ClassPeerIncomingConnectionObject incoming = pair.Value;
+                if (incoming == null)
                 {
-                    foreach (var peerIncomingConnectionKey in peerIncomingConnectionKeyList.GetList)
+                    _listPeerIncomingConnectionObject.TryRemove(pair.Key, out _);
+                    continue;
+                }
+
+                foreach (var clientPair in incoming.ListPeerClientObject.ToArray())
+                {
+                    if (incoming.ListPeerClientObject.TryRemove(clientPair.Key, out ClassPeerNetworkClientServerObject peerClient))
                     {
-                        if (_listPeerIncomingConnectionObject[peerIncomingConnectionKey] != null && _listPeerIncomingConnectionObject[peerIncomingConnectionKey]?.ListPeerClientObject?.Count > 0)
+                        try
                         {
-                            //_listPeerIncomingConnectionObject[peerIncomingConnectionKey].OnCleanUp = true;
-
-                            using (DisposableList<long> listKey = new DisposableList<long>(false, 0, _listPeerIncomingConnectionObject[peerIncomingConnectionKey].ListPeerClientObject.Keys.ToList()))
-                            {
-                                foreach (var key in listKey.GetList)
-                                {
-                                    try
-                                    {
-
-                                        if (_listPeerIncomingConnectionObject[peerIncomingConnectionKey].ListPeerClientObject[key].ClientPeerConnectionStatus)
-                                            totalConnectionClosed++;
-
-                                        _listPeerIncomingConnectionObject[peerIncomingConnectionKey].ListPeerClientObject[key].Dispose();
-                                    }
-                                    catch
-                                    {
-                                        // Ignored.
-                                    }
-                                }
-                            }
-
-                            //_listPeerIncomingConnectionObject[peerIncomingConnectionKey].OnCleanUp = false;
+                            if (peerClient != null && peerClient.ClientPeerConnectionStatus)
+                                totalConnectionClosed++;
                         }
+                        catch { }
+
+                        try { peerClient?.Dispose(); } catch { }
                     }
                 }
 
-                _listPeerIncomingConnectionObject.Clear();
-
+                _listPeerIncomingConnectionObject.TryRemove(pair.Key, out _);
             }
 
             return totalConnectionClosed;
