@@ -52,6 +52,7 @@ namespace Xenophyte_Lib.Log
         private const int FlushIntervalMs = 3000;
         private const int MaxBatchSize = 2000;
 
+
         #endregion
 
         #region Log files informations.

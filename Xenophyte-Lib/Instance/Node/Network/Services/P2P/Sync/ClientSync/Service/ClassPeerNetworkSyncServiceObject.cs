@@ -495,8 +495,7 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
 
                     if (_peerDatabase.Count > 0)
                     {
-                        try
-                        {
+
                             peerTargetList = GenerateOrUpdatePeerTargetList(peerTargetList);
 
                             // If true, run every peer check tasks functions.
@@ -513,11 +512,6 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                             }
 
                             ClearPeerTargetList(peerTargetList, false);
-                        }
-                        catch (Exception error)
-                        {
-                            ClassLog.WriteLine("Error on list peer target. Exception: " + error.Message, ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Red);
-                        }
                     }
 
 
@@ -575,199 +569,183 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
 
                 while (_peerSyncStatus)
                 {
-                    try
+
+                    // One synchronization cycle. It runs under a watchdog (see below): whatever
+                    // blocks inside it (database, socket, task never started...), the loop can no
+                    // longer stay stuck forever.
+                    Func<Task> syncCycle = async () =>
                     {
-                        // One synchronization cycle. It runs under a watchdog (see below): whatever
-                        // blocks inside it (database, socket, task never started...), the loop can no
-                        // longer stay stuck forever.
-                        Func<Task> syncCycle = async () =>
+                        if (_peerDatabase.Count == 0)
+                            return;
+
+                        long lastBlockHeight = ClassBlockchainStats.GetLastBlockHeight();
+
+                        peerTargetList = GenerateOrUpdatePeerTargetList(peerTargetList);
+                        bool forceDisconnect = false;
+
+                        // If true, run every peer check tasks functions.
+                        if (peerTargetList?.Count > 0)
                         {
-                            if (_peerDatabase.Count == 0)
-                                return;
 
-                            long lastBlockHeight = ClassBlockchainStats.GetLastBlockHeight();
+                            #region Sync block objects and transaction(s).
 
-                            peerTargetList = GenerateOrUpdatePeerTargetList(peerTargetList);
-                            bool forceDisconnect = false;
+                            long lastBlockHeightUnlocked = await ClassBlockchainStats.GetLastBlockHeightUnlocked(_cancellationTokenServiceSync);
+                            long lastBlockHeightUnlockedChecked = await ClassBlockchainStats.GetLastBlockHeightNetworkConfirmationChecked(_cancellationTokenServiceSync);
 
-                            // If true, run every peer check tasks functions.
-                            if (peerTargetList?.Count > 0)
+
+                            long lastBlockHeightTarget = 0;
+
+                            foreach (var peer in peerTargetList.Values)
                             {
+                                if (!_peerDatabase.ContainsPeerUniqueId(peer.PeerIpTarget, peer.PeerUniqueIdTarget, _cancellationTokenServiceSync) || lastBlockHeightTarget > _peerDatabase[peer.PeerIpTarget, peer.PeerUniqueIdTarget, _cancellationTokenServiceSync].PeerClientLastBlockHeight)
+                                    continue;
 
-                                #region Sync block objects and transaction(s).
+                                lastBlockHeightTarget = _peerDatabase[peer.PeerIpTarget, peer.PeerUniqueIdTarget, _cancellationTokenServiceSync].PeerClientLastBlockHeight;
+                            }
 
-                                long lastBlockHeightUnlocked = await ClassBlockchainStats.GetLastBlockHeightUnlocked(_cancellationTokenServiceSync);
-                                long lastBlockHeightUnlockedChecked = await ClassBlockchainStats.GetLastBlockHeightNetworkConfirmationChecked(_cancellationTokenServiceSync);
-
-
-                                long lastBlockHeightTarget = 0;
-
-                                foreach (var peer in peerTargetList.Values)
+                            using (DisposableList<long> blockListToSync = await ClassBlockchainStats.GetListBlockMissing(lastBlockHeightTarget, true, false, _cancellationTokenServiceSync, _peerNetworkSettingObject.PeerMaxRangeBlockToSyncPerRequest))
+                            {
+                                if (blockListToSync.Count > 0)
                                 {
-                                    if (!_peerDatabase.ContainsPeerUniqueId(peer.PeerIpTarget, peer.PeerUniqueIdTarget, _cancellationTokenServiceSync) || lastBlockHeightTarget > _peerDatabase[peer.PeerIpTarget, peer.PeerUniqueIdTarget, _cancellationTokenServiceSync].PeerClientLastBlockHeight)
-                                        continue;
+                                    ClassLog.WriteLine("Their is: " + blockListToSync.Count + " block(s) missing to sync. Current Height: " + ClassBlockchainStats.GetLastBlockHeight() + "/" + lastBlockHeightTarget, ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY);
 
-                                    lastBlockHeightTarget = _peerDatabase[peer.PeerIpTarget, peer.PeerUniqueIdTarget, _cancellationTokenServiceSync].PeerClientLastBlockHeight;
-                                }
-
-                                using (DisposableList<long> blockListToSync = await ClassBlockchainStats.GetListBlockMissing(lastBlockHeightTarget, true, false, _cancellationTokenServiceSync, _peerNetworkSettingObject.PeerMaxRangeBlockToSyncPerRequest))
-                                {
-                                    if (blockListToSync.Count > 0)
+                                    using (var syncBlockResult = await StartAskBlockObjectFromListPeerTarget(peerTargetList, blockListToSync, true))
                                     {
-                                        ClassLog.WriteLine("Their is: " + blockListToSync.Count + " block(s) missing to sync. Current Height: " + ClassBlockchainStats.GetLastBlockHeight() + "/" + lastBlockHeightTarget, ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY);
-
-                                        using (var syncBlockResult = await StartAskBlockObjectFromListPeerTarget(peerTargetList, blockListToSync, true))
+                                        if (syncBlockResult.Count > 0)
                                         {
-                                            if (syncBlockResult.Count > 0)
+                                            ClassLog.WriteLine(syncBlockResult.Count + " block(s) synced. Sync now block transaction(s) of them..", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY);
+
+                                            // One completion source per scheduled block task. It is always completed in the
+                                            // finally block, and the wait below is bounded, so a task that never runs
+                                            // (TaskManager disabled, cancelled before start, killed by the cleaner) cannot
+                                            // freeze the block synchronization loop.
+                                            List<Task> scheduledBlockTasks = new List<Task>();
+
+                                            foreach (ClassBlockObject blockObject in syncBlockResult.GetList.Values)
                                             {
-                                                ClassLog.WriteLine(syncBlockResult.Count + " block(s) synced. Sync now block transaction(s) of them..", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY);
+                                                TaskCompletionSource<bool> blockTaskCompletion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                                                scheduledBlockTasks.Add(blockTaskCompletion.Task);
 
-                                                // One completion source per scheduled block task. It is always completed in the
-                                                // finally block, and the wait below is bounded, so a task that never runs
-                                                // (TaskManager disabled, cancelled before start, killed by the cleaner) cannot
-                                                // freeze the block synchronization loop.
-                                                List<Task> scheduledBlockTasks = new List<Task>();
-
-                                                foreach (ClassBlockObject blockObject in syncBlockResult.GetList.Values)
+                                                TaskManager.TaskManager.InsertTask(async () =>
                                                 {
-                                                    TaskCompletionSource<bool> blockTaskCompletion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-                                                    scheduledBlockTasks.Add(blockTaskCompletion.Task);
-
-                                                    TaskManager.TaskManager.InsertTask(async () =>
+                                                    try
                                                     {
-                                                        try
+                                                        if (blockObject?.BlockHeight > lastBlockHeightUnlocked)
                                                         {
-                                                            if (blockObject?.BlockHeight > lastBlockHeightUnlocked)
+                                                            if (blockObject.BlockStatus == ClassBlockEnumStatus.LOCKED)
+                                                                return;
+
+                                                            if (blockObject.BlockHeight > BlockchainSetting.GenesisBlockHeight)
                                                             {
-                                                                if (blockObject.BlockStatus == ClassBlockEnumStatus.LOCKED)
-                                                                    return;
+                                                                ClassBlockObject blockInformation = await ClassBlockchainStats.GetBlockInformationData(blockObject.BlockHeight - 1, _cancellationTokenServiceSync);
 
-                                                                if (blockObject.BlockHeight > BlockchainSetting.GenesisBlockHeight)
+                                                                if (blockInformation == null || blockInformation.BlockStatus == ClassBlockEnumStatus.LOCKED)
                                                                 {
-                                                                    ClassBlockObject blockInformation = await ClassBlockchainStats.GetBlockInformationData(blockObject.BlockHeight - 1, _cancellationTokenServiceSync);
+                                                                    ClassLog.WriteLine("The block height: " + blockObject.BlockHeight + " cannot be synced, the previous one is locked. Attempt to fix the sync..", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Red);
 
-                                                                    if (blockInformation == null || blockInformation.BlockStatus == ClassBlockEnumStatus.LOCKED)
+                                                                    using (DisposableList<long> listBlockToFix = new DisposableList<long>())
                                                                     {
-                                                                        ClassLog.WriteLine("The block height: " + blockObject.BlockHeight + " cannot be synced, the previous one is locked. Attempt to fix the sync..", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Red);
-
-                                                                        using (DisposableList<long> listBlockToFix = new DisposableList<long>())
+                                                                        listBlockToFix.Add(blockObject.BlockHeight - 1);
+                                                                        using (var listBlock = await StartAskBlockObjectFromListPeerTarget(peerTargetList, listBlockToFix, true))
                                                                         {
-                                                                            listBlockToFix.Add(blockObject.BlockHeight - 1);
-                                                                            using (var listBlock = await StartAskBlockObjectFromListPeerTarget(peerTargetList, listBlockToFix, true))
+                                                                            if (listBlock.Count > 0)
                                                                             {
-                                                                                if (listBlock.Count > 0)
+                                                                                if (listBlock[blockObject.BlockHeight - 1]?.BlockStatus == ClassBlockEnumStatus.UNLOCKED)
                                                                                 {
-                                                                                    if (listBlock[blockObject.BlockHeight - 1]?.BlockStatus == ClassBlockEnumStatus.UNLOCKED)
+
+                                                                                    if (await ClassBlockchainDatabase.BlockchainMemoryManagement.InsertOrUpdateBlockObjectToCache(listBlock[blockObject.BlockHeight - 1], true, _cancellationTokenServiceSync))
                                                                                     {
+                                                                                        await ClassMemPoolDatabase.RemoveMemPoolAllTxFromBlockHeightTarget(listBlock[blockObject.BlockHeight - 1].BlockHeight, _cancellationTokenServiceSync);
 
-                                                                                        if (await ClassBlockchainDatabase.BlockchainMemoryManagement.InsertOrUpdateBlockObjectToCache(listBlock[blockObject.BlockHeight - 1], true, _cancellationTokenServiceSync))
-                                                                                        {
-                                                                                            await ClassMemPoolDatabase.RemoveMemPoolAllTxFromBlockHeightTarget(listBlock[blockObject.BlockHeight - 1].BlockHeight, _cancellationTokenServiceSync);
-
-                                                                                            ClassLog.WriteLine("The block height: " + listBlock[blockObject.BlockHeight - 1].BlockHeight + " data updated successfully, continue to sync.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Green);
-                                                                                        }
+                                                                                        ClassLog.WriteLine("The block height: " + listBlock[blockObject.BlockHeight - 1].BlockHeight + " data updated successfully, continue to sync.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Green);
                                                                                     }
-
-                                                                                    ClassLog.WriteLine("The block height: " + blockObject.BlockHeight + " cannot be synced, the previous one is locked. Fix completed.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Green);
                                                                                 }
+
+                                                                                ClassLog.WriteLine("The block height: " + blockObject.BlockHeight + " cannot be synced, the previous one is locked. Fix completed.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Green);
                                                                             }
                                                                         }
                                                                     }
                                                                 }
-
-                                                                blockObject.BlockUnlockValid = true;
-                                                                blockObject.BlockNetworkAmountConfirmations = BlockchainSetting.BlockAmountNetworkConfirmations;
-
-                                                                if (await ClassBlockchainDatabase.BlockchainMemoryManagement.InsertOrUpdateBlockObjectToCache(blockObject, true, _cancellationTokenServiceSync))
-                                                                {
-                                                                    await ClassMemPoolDatabase.RemoveMemPoolAllTxFromBlockHeightTarget(blockObject.BlockHeight, _cancellationTokenServiceSync);
-
-                                                                    ClassLog.WriteLine("The block height: " + blockObject.BlockHeight + " data updated successfully, continue to sync.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Green);
-                                                                }
-
                                                             }
-                                                            else
-                                                                ClassLog.WriteLine("A block object target synced is empty, retry again later.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY);
-                                                        }
-                                                        catch (OperationCanceledException)
-                                                        {
-                                                            throw;
-                                                        }
-                                                        catch (Exception error)
-                                                        {
-                                                            Debug.WriteLine("Xenophyte block sync task failed: " + error);
-                                                        }
-                                                        finally
-                                                        {
-                                                            // Always release the batch waiter, including early returns and exceptions.
-                                                            blockTaskCompletion.TrySetResult(true);
-                                                        }
-                                                    }, 0, _cancellationTokenServiceSync);
-                                                }
 
-                                                if (!await WaitAllWithTimeoutAsync(scheduledBlockTasks, GetBlockBatchWaitTimeoutMs(scheduledBlockTasks.Count), _cancellationTokenServiceSync.Token).ConfigureAwait(false))
-                                                {
-                                                    forceDisconnect = true;
-                                                    ClassLog.WriteLine("Timeout while storing " + scheduledBlockTasks.Count + " synced block(s). The sync cycle continues and will retry the missing blocks.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Red);
-                                                }
+                                                            blockObject.BlockUnlockValid = true;
+                                                            blockObject.BlockNetworkAmountConfirmations = BlockchainSetting.BlockAmountNetworkConfirmations;
+
+                                                            if (await ClassBlockchainDatabase.BlockchainMemoryManagement.InsertOrUpdateBlockObjectToCache(blockObject, true, _cancellationTokenServiceSync))
+                                                            {
+                                                                await ClassMemPoolDatabase.RemoveMemPoolAllTxFromBlockHeightTarget(blockObject.BlockHeight, _cancellationTokenServiceSync);
+
+                                                                ClassLog.WriteLine("The block height: " + blockObject.BlockHeight + " data updated successfully, continue to sync.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Green);
+                                                            }
+
+                                                        }
+                                                        else
+                                                            ClassLog.WriteLine("A block object target synced is empty, retry again later.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY);
+                                                    }
+                                                    catch (OperationCanceledException)
+                                                    {
+                                                        throw;
+                                                    }
+                                                    catch (Exception error)
+                                                    {
+                                                        Debug.WriteLine("Xenophyte block sync task failed: " + error);
+                                                    }
+                                                    finally
+                                                    {
+                                                        // Always release the batch waiter, including early returns and exceptions.
+                                                        blockTaskCompletion.TrySetResult(true);
+                                                    }
+                                                }, 0, _cancellationTokenServiceSync);
                                             }
-                                            else
+
+                                            if (!await WaitAllWithTimeoutAsync(scheduledBlockTasks, GetBlockBatchWaitTimeoutMs(scheduledBlockTasks.Count), _cancellationTokenServiceSync.Token).ConfigureAwait(false))
                                             {
                                                 forceDisconnect = true;
-                                                ClassLog.WriteLine("Can't sync " + blockListToSync.Count + " block(s), retry again later.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY);
+                                                ClassLog.WriteLine("Timeout while storing " + scheduledBlockTasks.Count + " synced block(s). The sync cycle continues and will retry the missing blocks.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Red);
                                             }
+                                        }
+                                        else
+                                        {
+                                            forceDisconnect = true;
+                                            ClassLog.WriteLine("Can't sync " + blockListToSync.Count + " block(s), retry again later.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY);
                                         }
                                     }
                                 }
-
-                                if (lastBlockHeight >= BlockchainSetting.GenesisBlockHeight)
-                                {
-                                    ClassBlockObject lastBlockObject = await ClassBlockchainDatabase.BlockchainMemoryManagement.GetBlockInformationDataStrategy(ClassBlockchainStats.GetLastBlockHeight(), _cancellationTokenServiceSync);
-
-                                   // if (lastBlockObject != null)
-                                   //     await ClassBlockchainDatabase.GenerateNewMiningBlockObject(lastBlockObject.BlockHeight, lastBlockObject.BlockHeight + 1, lastBlockObject.TimestampFound, lastBlockObject.BlockWalletAddressWinner, false, false, _cancellationTokenServiceSync);
-                                }
-
-                                #endregion
-
                             }
 
-                            ClearPeerTargetList(peerTargetList, forceDisconnect);
-                        };
-
-                        Task syncCycleTask = Task.Run(syncCycle);
-
-                        if (!await WaitAllWithTimeoutAsync(new Task[] { syncCycleTask }, SyncCycleWatchdogTimeoutMs, _cancellationTokenServiceSync.Token).ConfigureAwait(false))
-                        {
-                            // Watchdog: the cycle did not finish in time. Abandon it, force-close every peer
-                            // socket (this releases any pending network read/write of the abandoned cycle,
-                            // so it faults out by itself) and start a fresh cycle with fresh peer connections.
-                            ClassLog.WriteLine("Block synchronization cycle blocked for more than " + (SyncCycleWatchdogTimeoutMs / 1000) + " seconds. Watchdog: abandon the cycle, reset peer connections and restart the synchronization.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Red);
-
-                            // Observe the abandoned task so a late exception is never unobserved.
-                            _ = syncCycleTask.ContinueWith(t => { _ = t.Exception; }, TaskContinuationOptions.OnlyOnFaulted);
-
-                            try
+                            if (lastBlockHeight >= BlockchainSetting.GenesisBlockHeight)
                             {
-                                ClearPeerTargetList(peerTargetList, true);
+                                ClassBlockObject lastBlockObject = await ClassBlockchainDatabase.BlockchainMemoryManagement.GetBlockInformationDataStrategy(ClassBlockchainStats.GetLastBlockHeight(), _cancellationTokenServiceSync);
+
+                                // if (lastBlockObject != null)
+                                //     await ClassBlockchainDatabase.GenerateNewMiningBlockObject(lastBlockObject.BlockHeight, lastBlockObject.BlockHeight + 1, lastBlockObject.TimestampFound, lastBlockObject.BlockWalletAddressWinner, false, false, _cancellationTokenServiceSync);
                             }
-                            catch
-                            {
-                                // Ignored.
-                            }
+
+                            #endregion
+
                         }
 
-                        await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay, _cancellationTokenServiceSync.Token);
-                    }
-                    catch (OperationCanceledException) when (_cancellationTokenServiceSync.IsCancellationRequested)
+                        ClearPeerTargetList(peerTargetList, forceDisconnect);
+                    };
+
+                    Task syncCycleTask = Task.Run(syncCycle);
+
+                    if (!await WaitAllWithTimeoutAsync(new Task[] { syncCycleTask }, SyncCycleWatchdogTimeoutMs, _cancellationTokenServiceSync.Token).ConfigureAwait(false))
                     {
-                        break;
+                        // Watchdog: the cycle did not finish in time. Abandon it, force-close every peer
+                        // socket (this releases any pending network read/write of the abandoned cycle,
+                        // so it faults out by itself) and start a fresh cycle with fresh peer connections.
+                        ClassLog.WriteLine("Block synchronization cycle blocked for more than " + (SyncCycleWatchdogTimeoutMs / 1000) + " seconds. Watchdog: abandon the cycle, reset peer connections and restart the synchronization.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Red);
+
+                        // Observe the abandoned task so a late exception is never unobserved.
+                        syncCycleTask.ContinueWith(t => { _ = t.Exception; }, TaskContinuationOptions.OnlyOnFaulted);
+
+                        ClearPeerTargetList(peerTargetList, true);
+
                     }
-                    catch (Exception error)
-                    {
-                        Debug.WriteLine("Xenophyte block synchronization loop failed; retrying: " + error);
-                        await Task.Delay(1000, _cancellationTokenServiceSync.Token);
-                    }
+
+                    await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay, _cancellationTokenServiceSync.Token);
+
                 }
 
             }), 0, _cancellationTokenServiceSync, null, true);
@@ -1068,8 +1046,7 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
 
                 while (_peerSyncStatus)
                 {
-                    try
-                    {
+                    
                         if (_peerDatabase.Count > 0)
                         {
                             peerTargetList = GenerateOrUpdatePeerTargetList(peerTargetList);
@@ -1107,11 +1084,7 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                             }
                             ClearPeerTargetList(peerTargetList, false);
                         }
-                    }
-                    catch (Exception error)
-                    {
-                        ClassLog.WriteLine("Error on syncing network informations. Exception: " + error.Message, ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Red);
-                    }
+                   
                     await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay);
                 }
 
@@ -1482,7 +1455,7 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
         /// Maximum duration of one block synchronization cycle before the watchdog restarts it.
         /// Greater than the inner bounds (peer requests: 120s, block storage: 300s).
         /// </summary>
-        private const int SyncCycleWatchdogTimeoutMs = 480000;
+        private const int SyncCycleWatchdogTimeoutMs = 2 * 60 * 1000;
 
         /// <summary>
         /// Wait for every task, but never longer than the timeout.
