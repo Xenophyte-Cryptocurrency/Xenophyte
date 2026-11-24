@@ -42,29 +42,6 @@ namespace Xenophyte_Desktop_Wallet.InternalForm.Setting
             Close();
         }
 
-        /// <summary>
-        /// Change the setting into Internal Mode.
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void radioButtonInternalMode_CheckedChanged(object sender, EventArgs e)
-        {
-            radioButtonInternalMode.Checked = true;
-            ClassDesktopWalletCommonData.WalletSettingObject.WalletSyncMode = ClassWalletSettingEnumSyncMode.INTERNAL_PEER_SYNC_MODE;
-            radioButtonExternalMode.Checked = false;
-        }
-
-        /// <summary>
-        /// Change the setting into External Mode.
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void radioButtonExternalMode_CheckedChanged(object sender, EventArgs e)
-        {
-            radioButtonExternalMode.Checked = true;
-            ClassDesktopWalletCommonData.WalletSettingObject.WalletSyncMode = ClassWalletSettingEnumSyncMode.EXTERNAL_PEER_SYNC_MODE;
-            radioButtonInternalMode.Checked = false;
-        }
 
         /// <summary>
         /// Load every settins like the language setting.
@@ -95,6 +72,20 @@ namespace Xenophyte_Desktop_Wallet.InternalForm.Setting
                     }
                     break;
             }
+        }
+
+        private void radioButtonInternalMode_Click(object sender, EventArgs e)
+        {
+            radioButtonInternalMode.Checked = true;
+            ClassDesktopWalletCommonData.WalletSettingObject.WalletSyncMode = ClassWalletSettingEnumSyncMode.INTERNAL_PEER_SYNC_MODE;
+            radioButtonExternalMode.Checked = false;
+        }
+
+        private void radioButtonExternalMode_Click(object sender, EventArgs e)
+        {
+            radioButtonExternalMode.Checked = true;
+            ClassDesktopWalletCommonData.WalletSettingObject.WalletSyncMode = ClassWalletSettingEnumSyncMode.EXTERNAL_PEER_SYNC_MODE;
+            radioButtonInternalMode.Checked = false;
         }
     }
 }

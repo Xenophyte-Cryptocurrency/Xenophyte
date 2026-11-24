@@ -98,7 +98,7 @@
             radioButtonExternalMode.TabStop = true;
             radioButtonExternalMode.Text = "RADIO_BUTTON_EXTERNAL_MODE";
             radioButtonExternalMode.UseVisualStyleBackColor = true;
-            radioButtonExternalMode.CheckedChanged += radioButtonExternalMode_CheckedChanged;
+            radioButtonExternalMode.Click += radioButtonExternalMode_Click;
             // 
             // radioButtonInternalMode
             // 
@@ -111,7 +111,7 @@
             radioButtonInternalMode.TabStop = true;
             radioButtonInternalMode.Text = "RADIO_BUTTON_INTERNAL_MODE";
             radioButtonInternalMode.UseVisualStyleBackColor = true;
-            radioButtonInternalMode.CheckedChanged += radioButtonInternalMode_CheckedChanged;
+            radioButtonInternalMode.Click += radioButtonInternalMode_Click;
             // 
             // buttonCloseSettingForm
             // 

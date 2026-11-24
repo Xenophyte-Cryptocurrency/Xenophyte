@@ -7,7 +7,7 @@
   
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFrameworks>net9.0-windows;net8.0-windows;net7.0-windows;net6.0-windows;net5.0-windows;net48</TargetFrameworks>
+    <TargetFrameworks>;net9.0-windows;net8.0-windows;net7.0-windows;net6.0-windows;net5.0-windows;net48</TargetFrameworks>
     <RootNamespace>Xenophyte_Desktop_Wallet</RootNamespace>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>logo-web-profil.ico</ApplicationIcon>
@@ -18,7 +18,11 @@
     <PackAsTool>True</PackAsTool>
     <IncludeSymbols>True</IncludeSymbols>
   </PropertyGroup>
-
+	
+	<PropertyGroup Condition=" '$(TargetFramework)' == 'net9.0-windows'">
+        <DefineConstant>NET9</DefineConstant>
+    </PropertyGroup>
+	
 	<PropertyGroup Condition=" '$(TargetFramework)' == 'net8.0-windows'">
         <DefineConstant>NET8</DefineConstant>
     </PropertyGroup>

@@ -310,7 +310,7 @@ namespace Xenophyte_Lib.Blockchain.Database.Memory.Cache.Object.Systems.IO.Main
         {
             string ioFileName = GetIoFileNameFromBlockHeight(blockHeight);
 
-            return _dictionaryCacheIoIndexObject.ContainsKey(ioFileName) ? await _dictionaryCacheIoIndexObject[ioFileName].GetIoBlockDataInformationFromBlockHeight(blockHeight, cancellationIoCache) : null;
+            return _dictionaryCacheIoIndexObject.ContainsKey(ioFileName) && File.Exists(ioFileName) ? await _dictionaryCacheIoIndexObject[ioFileName].GetIoBlockDataInformationFromBlockHeight(blockHeight, cancellationIoCache) : null;
         }
 
         /// <summary>

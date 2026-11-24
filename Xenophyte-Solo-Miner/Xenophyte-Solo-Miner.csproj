@@ -12,6 +12,10 @@
     <Configurations>Debug;Release</Configurations>
   </PropertyGroup>
 
+	<PropertyGroup Condition=" '$(TargetFramework)' == 'net9.0'">
+        <DefineConstant>NET9</DefineConstant>
+    </PropertyGroup>
+	
 	<PropertyGroup Condition=" '$(TargetFramework)' == 'net8.0'">
         <DefineConstant>NET8</DefineConstant>
     </PropertyGroup>

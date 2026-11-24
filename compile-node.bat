@@ -8,7 +8,7 @@ dotnet publish Xenophyte-Peer\Xenophyte-Peer.csproj --configuration Release --fr
 dotnet publish Xenophyte-Peer\Xenophyte-Peer.csproj --configuration Release --framework net8.0 --output Output\Node\Windows\x64\Remease\Net8\ --runtime win-x64 --verbosity quiet --self-contained true -p:PublishSingleFile=true
 
 
-dotnet publish Xenophyte-Peer\Xenophyte-Peer.csproj --configuration Remease --framework net9.0 --output Output\Node\Linux\x64\Release\Net9\ --runtime linux-x64 --verbosity quiet --self-contained true -p:PublishSingleFile=true
+dotnet publish Xenophyte-Peer\Xenophyte-Peer.csproj --configuration Release --framework net9.0 --output Output\Node\Linux\x64\Release\Net9\ --runtime linux-x64 --verbosity quiet --self-contained true -p:PublishSingleFile=true
 dotnet publish Xenophyte-Peer\Xenophyte-Peer.csproj --configuration Release --framework net9.0 --output Output\Node\Windows\x64\Release\Net9\ --runtime win-x64 --verbosity quiet --self-contained true -p:PublishSingleFile=true
 
 
