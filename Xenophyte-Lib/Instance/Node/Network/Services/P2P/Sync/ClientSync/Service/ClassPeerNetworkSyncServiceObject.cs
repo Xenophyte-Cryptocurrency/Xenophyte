@@ -496,22 +496,22 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                     if (_peerDatabase.Count > 0)
                     {
 
-                            peerTargetList = GenerateOrUpdatePeerTargetList(peerTargetList);
+                        peerTargetList = GenerateOrUpdatePeerTargetList(peerTargetList);
 
-                            // If true, run every peer check tasks functions.
-                            if (peerTargetList.Count > 0)
-                            {
-                                ClassLog.WriteLine(peerTargetList.Count + " Peer(s) available to use for sync.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_HIGH_PRIORITY);
-                                ClassLog.WriteLine("Ask peer list(s) to other peers.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_HIGH_PRIORITY);
+                        // If true, run every peer check tasks functions.
+                        if (peerTargetList.Count > 0)
+                        {
+                            ClassLog.WriteLine(peerTargetList.Count + " Peer(s) available to use for sync.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_HIGH_PRIORITY);
+                            ClassLog.WriteLine("Ask peer list(s) to other peers.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_HIGH_PRIORITY);
 
-                                int countPeer = await StartAskPeerListFromListPeerTarget(peerTargetList);
+                            int countPeer = await StartAskPeerListFromListPeerTarget(peerTargetList);
 
 
-                                ClassLog.WriteLine(countPeer + " peer lists are received.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_HIGH_PRIORITY);
+                            ClassLog.WriteLine(countPeer + " peer lists are received.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_HIGH_PRIORITY);
 
-                            }
+                        }
 
-                            ClearPeerTargetList(peerTargetList, false);
+                        ClearPeerTargetList(peerTargetList, false);
                     }
 
 
@@ -730,18 +730,28 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
 
                     Task syncCycleTask = Task.Run(syncCycle);
 
-                    if (!await WaitAllWithTimeoutAsync(new Task[] { syncCycleTask }, SyncCycleWatchdogTimeoutMs, _cancellationTokenServiceSync.Token).ConfigureAwait(false))
+                    try
                     {
-                        // Watchdog: the cycle did not finish in time. Abandon it, force-close every peer
-                        // socket (this releases any pending network read/write of the abandoned cycle,
-                        // so it faults out by itself) and start a fresh cycle with fresh peer connections.
-                        ClassLog.WriteLine("Block synchronization cycle blocked for more than " + (SyncCycleWatchdogTimeoutMs / 1000) + " seconds. Watchdog: abandon the cycle, reset peer connections and restart the synchronization.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Red);
-
-                        // Observe the abandoned task so a late exception is never unobserved.
-                        syncCycleTask.ContinueWith(t => { _ = t.Exception; }, TaskContinuationOptions.OnlyOnFaulted);
-
+                        if (!await WaitAllWithTimeoutAsync(new Task[] { syncCycleTask }, SyncCycleWatchdogTimeoutMs, _cancellationTokenServiceSync.Token).ConfigureAwait(false))
+                        {
+                            // Do not abandon this task: it may still be using peer data or disposable
+                            // block collections. Disconnect peers to help pending network operations end,
+                            // then wait for this cycle before starting another one (no overlapping cycles).
+                            ClassLog.WriteLine("Block synchronization cycle exceeded " + (SyncCycleWatchdogTimeoutMs / 1000) + " seconds. Resetting peer connections and waiting for the current cycle to finish before retrying.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Red);
+                            ClearPeerTargetList(peerTargetList, true);
+                            await syncCycleTask.ConfigureAwait(false);
+                        }
+                    }
+                    catch (OperationCanceledException) when (_cancellationTokenServiceSync.IsCancellationRequested)
+                    {
+                        break;
+                    }
+                    catch (Exception error)
+                    {
+                        // A failed cycle must not terminate the long-running TaskManager worker.
+                        Debug.WriteLine("Xenophyte block synchronization cycle failed: " + error);
+                        ClassLog.WriteLine("Block synchronization cycle failed. Peer connections will be reset and synchronization will retry. Error: " + error.Message, ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.Red);
                         ClearPeerTargetList(peerTargetList, true);
-
                     }
 
                     await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay, _cancellationTokenServiceSync.Token);
@@ -1024,7 +1034,7 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                     }
 
 
-                    
+
 
                     await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay);
                 }
@@ -1046,45 +1056,45 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
 
                 while (_peerSyncStatus)
                 {
-                    
-                        if (_peerDatabase.Count > 0)
+
+                    if (_peerDatabase.Count > 0)
+                    {
+                        peerTargetList = GenerateOrUpdatePeerTargetList(peerTargetList);
+
+                        // If true, run every peer check tasks functions.
+                        if (peerTargetList.Count > 0)
                         {
-                            peerTargetList = GenerateOrUpdatePeerTargetList(peerTargetList);
+                            ClassLog.WriteLine("Start sync to retrieve back new network informations..", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY);
 
-                            // If true, run every peer check tasks functions.
-                            if (peerTargetList.Count > 0)
+
+                            Tuple<ClassPeerPacketSendNetworkInformation, float> packetNetworkInformationTmp = await StartAskNetworkInformationFromListPeerTarget(peerTargetList);
+
+                            if (packetNetworkInformationTmp?.Item1 != null)
                             {
-                                ClassLog.WriteLine("Start sync to retrieve back new network informations..", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY);
-
-
-                                Tuple<ClassPeerPacketSendNetworkInformation, float> packetNetworkInformationTmp = await StartAskNetworkInformationFromListPeerTarget(peerTargetList);
-
-                                if (packetNetworkInformationTmp?.Item1 != null)
+                                if (packetNetworkInformationTmp.Item2 > 0)
                                 {
-                                    if (packetNetworkInformationTmp.Item2 > 0)
-                                    {
-                                        ClassLog.WriteLine("Current network informations received successfully.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY);
+                                    ClassLog.WriteLine("Current network informations received successfully.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY);
 
-                                        _packetNetworkInformation = new ClassPeerPacketSendNetworkInformation()
-                                        {
-                                            CurrentBlockDifficulty = packetNetworkInformationTmp.Item1.CurrentBlockDifficulty,
-                                            CurrentBlockHash = packetNetworkInformationTmp.Item1.CurrentBlockHash,
-                                            TimestampBlockCreate = packetNetworkInformationTmp.Item1.TimestampBlockCreate,
-                                            LastBlockHeightUnlocked = packetNetworkInformationTmp.Item1.LastBlockHeightUnlocked,
-                                            PacketNumericHash = packetNetworkInformationTmp.Item1.PacketNumericHash,
-                                            CurrentBlockHeight = packetNetworkInformationTmp.Item1.CurrentBlockHeight,
-                                            PacketTimestamp = packetNetworkInformationTmp.Item1.PacketTimestamp,
-                                            PacketNumericSignature = packetNetworkInformationTmp.Item1.PacketNumericSignature,
-                                        };
-                                        ClassBlockchainStats.UpdateLastNetworkBlockHeight(packetNetworkInformationTmp.Item1.CurrentBlockHeight);
-                                    }
+                                    _packetNetworkInformation = new ClassPeerPacketSendNetworkInformation()
+                                    {
+                                        CurrentBlockDifficulty = packetNetworkInformationTmp.Item1.CurrentBlockDifficulty,
+                                        CurrentBlockHash = packetNetworkInformationTmp.Item1.CurrentBlockHash,
+                                        TimestampBlockCreate = packetNetworkInformationTmp.Item1.TimestampBlockCreate,
+                                        LastBlockHeightUnlocked = packetNetworkInformationTmp.Item1.LastBlockHeightUnlocked,
+                                        PacketNumericHash = packetNetworkInformationTmp.Item1.PacketNumericHash,
+                                        CurrentBlockHeight = packetNetworkInformationTmp.Item1.CurrentBlockHeight,
+                                        PacketTimestamp = packetNetworkInformationTmp.Item1.PacketTimestamp,
+                                        PacketNumericSignature = packetNetworkInformationTmp.Item1.PacketNumericSignature,
+                                    };
+                                    ClassBlockchainStats.UpdateLastNetworkBlockHeight(packetNetworkInformationTmp.Item1.CurrentBlockHeight);
                                 }
-                                else
-                                    ClassLog.WriteLine("Current network informations not received. Retry the sync later..", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY);
                             }
-                            ClearPeerTargetList(peerTargetList, false);
+                            else
+                                ClassLog.WriteLine("Current network informations not received. Retry the sync later..", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY);
                         }
-                   
+                        ClearPeerTargetList(peerTargetList, false);
+                    }
+
                     await Task.Delay(_peerNetworkSettingObject.PeerTaskSyncDelay);
                 }
 
@@ -1452,10 +1462,11 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
 
 
         /// <summary>
-        /// Maximum duration of one block synchronization cycle before the watchdog restarts it.
-        /// Greater than the inner bounds (peer requests: 120s, block storage: 300s).
+        /// Maximum duration before the watchdog reports a slow synchronization cycle.
+        /// This is deliberately longer than the maximum block-batch storage wait (1 minutes).
+        /// A timed-out cycle is never abandoned while it can still access its data.
         /// </summary>
-        private const int SyncCycleWatchdogTimeoutMs = 2 * 60 * 1000;
+        private const int SyncCycleWatchdogTimeoutMs =  60 * 1000;
 
         /// <summary>
         /// Wait for every task, but never longer than the timeout.
@@ -1600,12 +1611,14 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                                     result.Item2.ObjectReturned.BlockData.BlockTransactionConfirmationCheckTaskDone = false;
 
 
-                                    foreach (var transactionHash in result.Item2.ObjectReturned.BlockData.BlockTransactions.Keys)
+                                    // Iterate values directly: avoid a key enumeration followed by a
+                                    // second dictionary lookup for every transaction.
+                                    foreach (var transaction in result.Item2.ObjectReturned.BlockData.BlockTransactions.Values)
                                     {
-                                        result.Item2.ObjectReturned.BlockData.BlockTransactions[transactionHash].TotalSpend = 0;
-                                        result.Item2.ObjectReturned.BlockData.BlockTransactions[transactionHash].TransactionTotalConfirmation = 0;
-                                        result.Item2.ObjectReturned.BlockData.BlockTransactions[transactionHash].TransactionStatus = true;
-                                        result.Item2.ObjectReturned.BlockData.BlockTransactions[transactionHash].TransactionInvalidStatus = ClassTransactionEnumStatus.VALID_TRANSACTION;
+                                        transaction.TotalSpend = 0;
+                                        transaction.TransactionTotalConfirmation = 0;
+                                        transaction.TransactionStatus = true;
+                                        transaction.TransactionInvalidStatus = ClassTransactionEnumStatus.VALID_TRANSACTION;
                                     }
 
                                     #endregion
@@ -1661,12 +1674,13 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                                             blockObject.BlockTotalTaskTransactionConfirmationDone = 0;
                                             blockObject.BlockTransactionConfirmationCheckTaskDone = false;
 
-                                            foreach (var transactionHash in blockObject.BlockTransactions.Keys)
+                                            // Iterate values directly to avoid repeated transaction dictionary lookups.
+                                            foreach (var transaction in blockObject.BlockTransactions.Values)
                                             {
-                                                blockObject.BlockTransactions[transactionHash].TotalSpend = 0;
-                                                blockObject.BlockTransactions[transactionHash].TransactionTotalConfirmation = 0;
-                                                blockObject.BlockTransactions[transactionHash].TransactionStatus = true;
-                                                blockObject.BlockTransactions[transactionHash].TransactionInvalidStatus = ClassTransactionEnumStatus.VALID_TRANSACTION;
+                                                transaction.TotalSpend = 0;
+                                                transaction.TransactionTotalConfirmation = 0;
+                                                transaction.TransactionStatus = true;
+                                                transaction.TransactionInvalidStatus = ClassTransactionEnumStatus.VALID_TRANSACTION;
                                             }
 
 
@@ -1730,88 +1744,63 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                 try { peerCancellation.Dispose(); } catch { }
             }
 
+            // Select the most frequently agreed block object at each height.
+            // A plain local dictionary is sufficient here because all peer tasks have
+            // completed before consensus aggregation begins.
             foreach (long blockHeight in listBlockObjectsReceived.GetList.Keys)
             {
-                using (DisposableDictionary<string, ClassBlockSync> listBlockSynced = new DisposableDictionary<string, ClassBlockSync>())
+                var receivedByPeer = listBlockObjectsReceived[blockHeight];
+                if (receivedByPeer == null || receivedByPeer.IsEmpty)
+                    continue;
+
+                Dictionary<string, ClassBlockSync> votesByBlockHash =
+                    new Dictionary<string, ClassBlockSync>(receivedByPeer.Count, StringComparer.Ordinal);
+
+                ClassBlockSync mostVotedBlock = null;
+
+                foreach (KeyValuePair<int, ClassBlockObject> peerBlock in receivedByPeer)
                 {
-                    foreach (int peerId in listBlockObjectsReceived[blockHeight].Keys)
+                    ClassBlockObject receivedBlock = peerBlock.Value;
+                    if (receivedBlock == null)
+                        continue;
+
+                    // Keep the clone: it preserves the existing snapshot semantics while
+                    // the canonical block serialization/hash is calculated.
+                    receivedBlock.DeepCloneBlockObject(false, out ClassBlockObject blockObjectInformation);
+
+                    string blockObjectHash = ClassUtility.GenerateSha256FromString(
+                        string.Concat("", ClassBlockUtility.BlockObjectToStringBlockData(blockObjectInformation, false).ToList()));
+
+                    if (votesByBlockHash.TryGetValue(blockObjectHash, out ClassBlockSync existingVote))
                     {
-                        if (!listBlockObjectsReceived.ContainsKey(blockHeight) ||
-                            !listBlockObjectsReceived[blockHeight].ContainsKey(peerId) ||
-                            listBlockObjectsReceived[blockHeight][peerId] == null)
-                            continue;
-
-                        listBlockObjectsReceived[blockHeight][peerId].DeepCloneBlockObject(false, out ClassBlockObject blockObjectInformation);
-
-                        string blockObjectHash = ClassUtility.GenerateSha256FromString(string.Concat("", ClassBlockUtility.BlockObjectToStringBlockData(blockObjectInformation, false).ToList()));
-
-                        //bool insertStatus = false;
-
-                        if (!listBlockSynced.GetList.ContainsKey(blockObjectHash))
-                            listBlockSynced.Add(blockObjectHash, new ClassBlockSync()
-                            {
-                                BlockHash = blockObjectHash,
-                                BlockHeight = blockHeight,
-                                PeerId = peerId,
-                                TotalVote = 1
-                            });
-                        else
-                            listBlockSynced[blockObjectHash].TotalVote++;
-
-                        #region Later
-
-                        /*if (insertStatus)
-                        {
-                            bool insertVoteStatus = false;
-                            if (!listBlockObjectsReceivedVotes.ContainsKey(blockObjectHash))
-                            {
-                                if (listBlockObjectsReceivedVotes.TryAdd(blockObjectHash, new ConcurrentDictionary<bool, float>()))
-                                {
-                                    // Ranked.
-                                    if (listBlockObjectsReceivedVotes[blockObjectHash].TryAdd(true, 0))
-                                    {
-                                        if (listBlockObjectsReceivedVotes[blockObjectHash].TryAdd(false, 0))
-                                            insertVoteStatus = true;
-                                    }
-                                }
-                            }
-                            else
-                                insertVoteStatus = true;
-
-                            if (insertVoteStatus)
-                            {
-                                if (peerRanked)
-                                {
-                                    if (listBlockObjectsReceivedVotes[blockObjectHash].ContainsKey(true))
-                                        listBlockObjectsReceivedVotes[blockObjectHash][true]++;
-                                }
-                                else
-                                {
-                                    if (listBlockObjectsReceivedVotes[blockObjectHash].ContainsKey(false))
-                                        listBlockObjectsReceivedVotes[blockObjectHash][false]++;
-                                }
-
-                                totalResponseOk++;
-                            }
-                        }*/
-
-                        #endregion
-
-
+                        existingVote.TotalVote++;
+                        if (mostVotedBlock == null || existingVote.TotalVote > mostVotedBlock.TotalVote)
+                            mostVotedBlock = existingVote;
                     }
-
-                    if (listBlockSynced.Count > 0)
+                    else
                     {
-                        var element = listBlockSynced.GetList.Values.OrderByDescending(x => x.TotalVote)?.First();
+                        ClassBlockSync newVote = new ClassBlockSync()
+                        {
+                            BlockHash = blockObjectHash,
+                            BlockHeight = blockHeight,
+                            PeerId = peerBlock.Key,
+                            TotalVote = 1
+                        };
 
-                        if (element == null || !listBlockObjectsReceived[blockHeight].ContainsKey(element.PeerId) || listBlockObjectsReceived[blockHeight][element.PeerId] == null)
-                            continue;
+                        votesByBlockHash.Add(blockObjectHash, newVote);
 
-                        blockListSynced.Add(blockHeight, listBlockObjectsReceived[blockHeight][element.PeerId]);
+                        if (mostVotedBlock == null)
+                            mostVotedBlock = newVote;
                     }
                 }
-            }
 
+                if (mostVotedBlock != null &&
+                    receivedByPeer.TryGetValue(mostVotedBlock.PeerId, out ClassBlockObject selectedBlock) &&
+                    selectedBlock != null)
+                {
+                    blockListSynced.Add(blockHeight, selectedBlock);
+                }
+            }
 
             return blockListSynced;
         }
@@ -3167,6 +3156,9 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                     return new Tuple<bool, ClassPeerSyncPacketObjectReturned<ClassPeerPacketSendBlockDataRange>>(true, null);
                 }
 
+                if (peerNetworkClientSyncObject.PeerPacketReceived == null)
+                    return new Tuple<bool, ClassPeerSyncPacketObjectReturned<ClassPeerPacketSendBlockDataRange>>(false, null);
+
                 if (peerNetworkClientSyncObject.PeerPacketReceived.PacketOrder == ClassPeerEnumPacketResponse.SEND_BLOCK_DATA_BY_RANGE)
                 {
                     if (!TryGetPacketBlockDataByRange(_peerDatabase, peerNetworkClientSyncObject, peerIp, _peerNetworkSettingObject, blockHeightTargetStart, refuseLockedBlock, cancellation, out ClassPeerPacketSendBlockDataRange packetSendBlockData))
@@ -3259,6 +3251,9 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                     await SendAskAuthPeerKeys(peerNetworkClientSyncObject, cancellation, true);
                     return new Tuple<bool, ClassPeerSyncPacketObjectReturned<ClassPeerPacketSendBlockData>>(true, null);
                 }
+
+                if (peerNetworkClientSyncObject.PeerPacketReceived == null)
+                    return new Tuple<bool, ClassPeerSyncPacketObjectReturned<ClassPeerPacketSendBlockData>>(false, null);
 
                 if (peerNetworkClientSyncObject.PeerPacketReceived.PacketOrder == ClassPeerEnumPacketResponse.SEND_BLOCK_DATA)
                 {

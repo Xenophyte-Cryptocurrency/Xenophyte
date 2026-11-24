@@ -23,8 +23,12 @@ namespace Xenophyte_Lib.Other.Object.Network
         private readonly SemaphoreSlim _binarySendLock =
             new SemaphoreSlim(1, 1);
 
+        // A single receive gate protects the TCP stream: raw and binary reads must
+        // never run concurrently because TCP is an ordered byte stream.
         private readonly SemaphoreSlim _binaryReceiveLock =
             new SemaphoreSlim(1, 1);
+
+        private readonly object _closeLock = new object();
 
         // Reused scratch buffers. ReceiveBinaryPacketAsync holds _binaryReceiveLock
         // for the complete logical packet, so these arrays cannot be used concurrently.
@@ -127,6 +131,7 @@ namespace Xenophyte_Lib.Other.Object.Network
                 port > 65535 ||
                 cancellation == null ||
                 cancellation.IsCancellationRequested ||
+                Closed ||
                 _socket == null)
                 return false;
 
@@ -289,66 +294,91 @@ namespace Xenophyte_Lib.Other.Object.Network
                 maximumLogicalDataSize <= 0 ||
                 maximumLogicalDataSize > 256 * 1024 * 1024 ||
                 data.Length > maximumLogicalDataSize ||
-                Closed || _networkStream == null || !IsConnected())
+                Closed || _networkStream == null)
                 return false;
 
-            int fragmentCount = (data.Length + BinaryFragmentDataSize - 1) / BinaryFragmentDataSize;
+            int fragmentCount = (data.Length + BinaryFragmentDataSize - 1) /
+                                BinaryFragmentDataSize;
             if (fragmentCount < 1 || fragmentCount > 65535)
                 return false;
 
             bool lockTaken = false;
             bool writeStarted = false;
+
             try
             {
                 await _binarySendLock.WaitAsync(cancellationToken);
                 lockTaken = true;
 
+                NetworkStream stream = _networkStream;
+                if (Closed || stream == null || !IsConnected())
+                    return false;
+
+                // Reuse buffers for the complete logical packet.
+                byte[] header = new byte[BinaryHeaderSize];
+                byte[] frameData = new byte[BinaryMaximumFrameDataSize];
+
+                WriteUInt32LE(header, 0, BinaryPacketMagic);
+                header[4] = BinaryProtocolVersion;
+                header[5] = command;
+                WriteUInt16LE(header, 6, (ushort)(flags | BinaryFragmentFlag));
+                WriteUInt32LE(header, 8, packetId);
+
                 for (int fragmentIndex = 0; fragmentIndex < fragmentCount; fragmentIndex++)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
+
                     int sourceOffset = fragmentIndex * BinaryFragmentDataSize;
-                    int dataLength = System.Math.Min(BinaryFragmentDataSize, data.Length - sourceOffset);
-                    byte[] frameData = new byte[BinaryFragmentMetadataSize + dataLength];
+                    int dataLength = System.Math.Min(
+                        BinaryFragmentDataSize,
+                        data.Length - sourceOffset);
+
                     WriteUInt32LE(frameData, 0, packetId);
                     WriteUInt32LE(frameData, 4, (uint)fragmentIndex);
                     WriteUInt32LE(frameData, 8, (uint)fragmentCount);
                     WriteUInt32LE(frameData, 12, (uint)data.Length);
-                    Buffer.BlockCopy(data, sourceOffset, frameData, BinaryFragmentMetadataSize, dataLength);
 
-                    byte[] header = new byte[BinaryHeaderSize];
-                    WriteUInt32LE(header, 0, BinaryPacketMagic);
-                    header[4] = BinaryProtocolVersion;
-                    header[5] = command;
-                    WriteUInt16LE(header, 6, (ushort)(flags | BinaryFragmentFlag));
-                    WriteUInt32LE(header, 8, packetId);
-                    WriteUInt32LE(header, 12, (uint)frameData.Length);
+                    Buffer.BlockCopy(
+                        data, sourceOffset, frameData,
+                        BinaryFragmentMetadataSize, dataLength);
+
+                    int frameLength = BinaryFragmentMetadataSize + dataLength;
+                    WriteUInt32LE(header, 12, (uint)frameLength);
 
                     writeStarted = true;
-                    await _networkStream.WriteAsync(header, 0, header.Length, cancellationToken);
-                    await _networkStream.WriteAsync(frameData, 0, frameData.Length, cancellationToken);
+                    await stream.WriteAsync(
+                        header, 0, header.Length, cancellationToken);
+                    await stream.WriteAsync(
+                        frameData, 0, frameLength, cancellationToken);
                 }
+
                 return true;
             }
             catch (OperationCanceledException)
             {
-                if (writeStarted) Close(SocketShutdown.Both);
+                if (writeStarted)
+                    Close(SocketShutdown.Both);
+
                 return false;
             }
             catch (Exception error)
             {
 #if DEBUG
-                Debug.WriteLine("XENO fragmented send error to " + GetIp + " | " + error.Message);
+                Debug.WriteLine(
+                    "XENO fragmented send error to " + GetIp + " | " + error.Message);
 #endif
-                if (writeStarted) Close(SocketShutdown.Both);
+                if (writeStarted)
+                    Close(SocketShutdown.Both);
+
                 return false;
             }
             finally
             {
-                if (lockTaken) _binarySendLock.Release();
+                if (lockTaken)
+                    _binarySendLock.Release();
             }
         }
 
-        // ============================================================
         // XENO BINARY PACKET RECEIVING
         // ============================================================
 
@@ -514,8 +544,9 @@ namespace Xenophyte_Lib.Other.Object.Network
 #if DEBUG
                     Debug.WriteLine("XENO binary receive error from " + GetIp + " | " + error.Message);
 #endif
-                    if (progress.BytesConsumed)
-                        Close(SocketShutdown.Both);
+                    // Invalid framing, EOF, or an I/O failure makes the current
+                    // stream position unusable. Do not read another packet from it.
+                    Close(SocketShutdown.Both);
                     return null;
                 }
                 finally
@@ -655,11 +686,21 @@ namespace Xenophyte_Lib.Other.Object.Network
 
             CancellationTokenSource ctsDelay = null;
             CancellationTokenSource ctsLinked = null;
+            bool lockTaken = false;
 
             int offset = 0;
+            bool framingComplete = false;
 
             try
             {
+                // Raw and binary reads share one ordered TCP stream.
+                await _binaryReceiveLock.WaitAsync(cancellation.Token);
+                lockTaken = true;
+
+                if (Closed || _networkStream == null ||
+                    cancellation.IsCancellationRequested)
+                    return readPacketData;
+
                 ctsDelay = delayReading > 0
                     ? new CancellationTokenSource(delayReading)
                     : new CancellationTokenSource();
@@ -687,9 +728,20 @@ namespace Xenophyte_Lib.Other.Object.Network
                         if (ContainsHttpHeaderTerminator(
                             readPacketData.Data,
                             offset))
+                        {
+                            framingComplete = true;
                             break;
+                        }
                     }
                 }
+
+                if (!isHttp && offset == packetLength)
+                    framingComplete = true;
+
+                // A partial fixed-length packet (or incomplete HTTP header) has
+                // consumed bytes that cannot safely be returned to the next reader.
+                if (offset > 0 && !framingComplete)
+                    Close(SocketShutdown.Both);
 
                 // Use the number of bytes actually read.
                 // Do not infer the length by trimming trailing zero bytes.
@@ -717,11 +769,16 @@ namespace Xenophyte_Lib.Other.Object.Network
                     "Reading legacy packet exception from " +
                     GetIp + " | " + error.Message);
 #endif
+                if (offset > 0 && !framingComplete)
+                    Close(SocketShutdown.Both);
             }
             finally
             {
                 try { ctsLinked?.Dispose(); } catch { }
                 try { ctsDelay?.Dispose(); } catch { }
+
+                if (lockTaken)
+                    _binaryReceiveLock.Release();
             }
 
             readPacketData.Status =
@@ -762,80 +819,51 @@ namespace Xenophyte_Lib.Other.Object.Network
 
         private void Close(SocketShutdown shutdownType)
         {
-            if (Closed)
-                return;
-
-            Closed = true;
-
-            try
+            lock (_closeLock)
             {
-                try
-                {
-                    _networkStream?.Close();
-                }
-                catch { }
+                if (Closed)
+                    return;
 
-                try
-                {
-                    _networkStream?.Dispose();
-                }
-                catch { }
+                Closed = true;
 
+                NetworkStream stream = _networkStream;
+                Socket socket = _socket;
                 _networkStream = null;
+                _socket = null;
 
-                if (_socket != null)
+                try
                 {
-                    try
+                    if (stream != null)
                     {
-                        if (_socket.Connected)
-                            _socket.Shutdown(shutdownType);
+                        try { stream.Close(); } catch { }
+                        try { stream.Dispose(); } catch { }
                     }
-                    catch { }
 
-                    try
+                    if (socket != null)
                     {
-                        _socket.Close();
-                    }
-                    catch { }
+                        try
+                        {
+                            if (socket.Connected)
+                                socket.Shutdown(shutdownType);
+                        }
+                        catch { }
 
-                    try
-                    {
-                        _socket.Dispose();
+                        try { socket.Close(); } catch { }
+                        try { socket.Dispose(); } catch { }
                     }
-                    catch { }
-
-                    _socket = null;
                 }
-            }
-            catch
-            {
-                // Ignored.
+                catch
+                {
+                    // Socket teardown is best-effort and idempotent.
+                }
             }
         }
 
         private void SafeKillSocket()
         {
-            try
-            {
-                if (_socket != null)
-                {
-                    try { _socket.Close(); } catch { }
-                    try { _socket.Dispose(); } catch { }
-                }
-            }
-            catch
-            {
-                // Ignored.
-            }
-            finally
-            {
-                _socket = null;
-                _networkStream = null;
-                Closed = true;
-            }
+            Close(SocketShutdown.Both);
         }
 
-        // ============================================================
         // TCP CONFIGURATION
         // ============================================================
 

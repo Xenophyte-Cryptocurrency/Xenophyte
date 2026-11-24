@@ -658,7 +658,7 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Clien
 
                             bool containRange = true;
 
-                            for (long i = packetSendAskBlockDataByRange.BlockHeightStart; i < packetSendAskBlockDataByRange.BlockHeightEnd; i++)
+                            for (long i = packetSendAskBlockDataByRange.BlockHeightStart; i <= packetSendAskBlockDataByRange.BlockHeightEnd; i++)
                             {
                                 if (!ClassBlockchainStats.ContainsBlockHeight(i))
                                 {
@@ -683,7 +683,7 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ServerSync.Clien
                                     PacketTimestamp = TaskManager.TaskManager.CurrentTimestampSecond
                                 };
 
-                                for (long i = packetSendAskBlockDataByRange.BlockHeightStart; i < packetSendAskBlockDataByRange.BlockHeightEnd; i++)
+                                for (long i = packetSendAskBlockDataByRange.BlockHeightStart; i <= packetSendAskBlockDataByRange.BlockHeightEnd; i++)
                                 {
 
                                     ClassBlockObject blockObject = await ClassBlockchainDatabase.BlockchainMemoryManagement.GetBlockDataStrategy(i, true, false, _cancellationTokenListenPeerPacket);

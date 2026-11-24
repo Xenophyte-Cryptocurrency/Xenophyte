@@ -660,17 +660,25 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Funct
         /// <returns></returns>
         private async Task<bool> CheckPacketBlockDataByRange(ClassPeerPacketSendBlockDataRange packetSendBlockData, long blockHeightTarget, bool refuseLockedBlock, ClassPeerNetworkSettingObject peerNetworkSettingObject, CancellationTokenSource cancellation)
         {
+            if (packetSendBlockData?.ListBlockObject == null)
+                return false;
+
+            if (!ClassUtility.CheckPacketTimestamp(packetSendBlockData.PacketTimestamp, peerNetworkSettingObject.PeerMaxTimestampDelayPacket, peerNetworkSettingObject.PeerMaxEarlierPacketDelay))
+                return false;
+
+            List<ClassBlockObject> listBlockObjectValid = new List<ClassBlockObject>(packetSendBlockData.ListBlockObject.Count);
 
             foreach (ClassBlockObject blockObject in packetSendBlockData.ListBlockObject)
             {
-                if  (blockObject?.BlockHash == null)
+                if (blockObject?.BlockHash == null)
                     return false;
 
-                if (!ClassUtility.CheckPacketTimestamp(packetSendBlockData.PacketTimestamp, peerNetworkSettingObject.PeerMaxTimestampDelayPacket, peerNetworkSettingObject.PeerMaxEarlierPacketDelay))
-                    return false;
-
-                if (blockObject == null)
-                    return false;
+                // A range can legitimately end with blocks that are still locked on the peer.
+                // When locked blocks are refused, drop them from the response instead of
+                // rejecting the whole range (which discarded every valid block and
+                // counted an honest peer as sending an invalid packet).
+                if (refuseLockedBlock && blockObject.BlockStatus == ClassBlockEnumStatus.LOCKED)
+                    continue;
 
                 // Reset block data just in case.
                 blockObject.BlockTransactionFullyConfirmed = false;
@@ -680,7 +688,6 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Funct
                 blockObject.BlockLastHeightTransactionConfirmationDone = 0;
                 blockObject.BlockTotalTaskTransactionConfirmationDone = 0;
                 blockObject.BlockTransactionConfirmationCheckTaskDone = false;
-                blockObject.BlockTotalTaskTransactionConfirmationDone = 0;
                 blockObject.TotalCoinConfirmed = 0;
                 blockObject.TotalCoinPending = 0;
                 blockObject.TotalFee = 0;
@@ -689,7 +696,10 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Funct
                 if (!await ClassBlockUtility.CheckBlockDataObject(blockObject, blockObject.BlockHeight, refuseLockedBlock, cancellation))
                     return false;
 
+                listBlockObjectValid.Add(blockObject);
             }
+
+            packetSendBlockData.ListBlockObject = listBlockObjectValid;
             return true;
         }
 
