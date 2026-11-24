@@ -14,3 +14,13 @@ Aucun changement au protocole P2P, aux formats de paquets, à la sérialisation 
 
 ## Validation
 Modification source uniquement. La compilation et les tests réseau ne sont pas exécutables dans cet environnement car le SDK .NET/MSBuild n'est pas installé. Construire le projet avec le SDK cible avant déploiement et effectuer des tests de synchronisation longue durée, avec réponses partielles, blocs invalides, pair déconnecté et annulation.
+
+## Durcissement complémentaire — réponses partielles des pairs
+
+- Une réponse de bloc isolé absente, verrouillée, hors plage ou sans transactions n'interrompt plus les demandes suivantes du même pair.
+- Dans une réponse par plage, un élément invalide est ignoré afin de conserver les blocs valides qui suivent.
+- Les exceptions locales sont journalisées avec le pair et, pour les requêtes unitaires, la hauteur demandée.
+- `OperationCanceledException` est explicitement propagée dans les deux boucles internes : l'annulation du service n'est plus absorbée comme une simple réponse invalide.
+- Aucun changement du protocole, du format des blocs, du vote majoritaire ou des règles de consensus.
+
+Validation : inspection statique des deux boucles modifiées et vérification de l'intégrité de l'archive. La compilation .NET et les tests réseau longue durée restent à exécuter dans un environnement disposant du SDK cible.

@@ -1583,13 +1583,13 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                                     result.Item2.ObjectReturned.BlockData == null ||
                                     result.Item2.ObjectReturned.BlockData.BlockStatus == ClassBlockEnumStatus.LOCKED ||
                                     !listBlockObjectsReceived.ContainsKey(result.Item2.ObjectReturned.BlockData.BlockHeight))
-                                        break;
+                                        continue;
 
                                     #region Ensure to reset the block data received.
 
                                     if (result.Item2.ObjectReturned.BlockData.BlockTransactions == null ||
                                         result.Item2.ObjectReturned.BlockData.BlockTransactions.Count == 0)
-                                        break;
+                                        continue;
 
                                     result.Item2.ObjectReturned.BlockData.BlockTransactionFullyConfirmed = false;
                                     result.Item2.ObjectReturned.BlockData.BlockUnlockValid = false;
@@ -1612,9 +1612,18 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
 
                                     listBlockObjectsReceived[result.Item2.ObjectReturned.BlockData.BlockHeight].TryAdd(i1, result.Item2.ObjectReturned.BlockData);
                                 }
-                                catch
+                                catch (OperationCanceledException)
                                 {
-                                    break;
+                                    throw;
+                                }
+                                catch (Exception error)
+                                {
+                                    ClassLog.WriteLine(
+                                        "Invalid block response from peer " + peerIpLog +
+                                        " while requesting height " + blockHeight + ": " + error.Message,
+                                        ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC,
+                                        ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY);
+                                    continue;
                                 }
                             }
                         }
@@ -1638,7 +1647,7 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                                             !listBlockObjectsReceived.ContainsKey(blockObject.BlockHeight) ||
                                             blockObject.BlockTransactions == null ||
                                             blockObject.BlockTransactions.Count == 0)
-                                            break;
+                                            continue;
 
                                         #region Ensure to clean the block object received.
 
@@ -1665,9 +1674,17 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
                                         }
                                         #endregion
                                     }
-                                    catch
+                                    catch (OperationCanceledException)
                                     {
-                                        break;
+                                        throw;
+                                    }
+                                    catch (Exception error)
+                                    {
+                                        ClassLog.WriteLine(
+                                            "Invalid block in range response from peer " + peerIpLog + ": " + error.Message,
+                                            ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC,
+                                            ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY);
+                                        continue;
                                     }
                                 }
                             }
