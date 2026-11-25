@@ -1544,10 +1544,8 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
             // (or a send/receive that ignores cancellation) is abandoned instead of
             // blocking the whole synchronization cycle.
             int peerRequestTimeoutMs = (int)Math.Min(
-    (long)Math.Max(1, _peerNetworkSettingObject.PeerMaxDelayAwaitResponse)
-    * 1000L
-    * Math.Max(1, listBlockHeightTarget.Count),
-    120000L);
+                (long)Math.Max(1, _peerNetworkSettingObject.PeerMaxDelayAwaitResponse) * 1000L * Math.Max(2, Math.Min(listBlockHeightTarget.Count, 8)),
+                120000L);
 
             // Snapshot the keys: the peer target list can be modified elsewhere while we wait.
             foreach (int i in peerListTarget.Keys.ToList())
@@ -1559,9 +1557,7 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
 
                 string peerIpLog = peerTarget.PeerIpTarget;
 
-                CancellationTokenSource peerCancellation = CancellationTokenSource.CreateLinkedTokenSource(_cancellationTokenServiceSync.Token);
-                peerCancellation.CancelAfter(peerRequestTimeoutMs);
-                peerCancellations.Add(peerCancellation);
+                CancellationTokenSource peerCancellation = CancellationTokenSource.CreateLinkedTokenSource(_cancellationTokenServiceSync.Token, new CancellationTokenSource(peerRequestTimeoutMs).Token);
 
                 peerTasks.Add(TaskManager.TaskManager.InsertTask(new Func<Task>(async () =>
                 {
@@ -1726,7 +1722,7 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
 
                 if (peerTasks.Count >= maxConcurrentPeerRequests)
                 {
-                    if (!await WaitAllWithTimeoutAsync(peerTasks, peerRequestTimeoutMs + 5000, _cancellationTokenServiceSync.Token).ConfigureAwait(false))
+                    if (!await WaitAllWithTimeoutAsync(peerTasks, peerRequestTimeoutMs + 5000, peerCancellation.Token).ConfigureAwait(false))
                         ClassLog.WriteLine("Timeout while waiting a batch of peer block responses. Continue with the data already received.", ClassEnumLogLevelType.LOG_LEVEL_PEER_TASK_SYNC, ClassEnumLogWriteLevel.LOG_WRITE_LEVEL_MANDATORY_PRIORITY, false, ConsoleColor.DarkYellow);
 
                     peerTasks.Clear();
