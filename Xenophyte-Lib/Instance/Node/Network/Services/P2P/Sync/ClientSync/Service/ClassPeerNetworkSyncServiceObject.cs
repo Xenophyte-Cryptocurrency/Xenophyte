@@ -1544,8 +1544,10 @@ namespace Xenophyte_Lib.Instance.Node.Network.Services.P2P.Sync.ClientSync.Servi
             // (or a send/receive that ignores cancellation) is abandoned instead of
             // blocking the whole synchronization cycle.
             int peerRequestTimeoutMs = (int)Math.Min(
-                (long)Math.Max(1, _peerNetworkSettingObject.PeerMaxDelayAwaitResponse) * 1000L * Math.Max(2, Math.Min(listBlockHeightTarget.Count, 8)),
-                120000L);
+    (long)Math.Max(1, _peerNetworkSettingObject.PeerMaxDelayAwaitResponse)
+    * 1000L
+    * Math.Max(1, listBlockHeightTarget.Count),
+    120000L);
 
             // Snapshot the keys: the peer target list can be modified elsewhere while we wait.
             foreach (int i in peerListTarget.Keys.ToList())
